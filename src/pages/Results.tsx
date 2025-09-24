@@ -7,6 +7,23 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -19,7 +36,8 @@ import {
   TrendingDown,
   Search,
   Clock,
-  Trash2
+  Trash2,
+  Eye
 } from 'lucide-react';
 import { dataService } from '@/services/dataService';
 import type { Evaluation, Judge, Submission, Question, Statistics } from '@/types';
@@ -44,6 +62,10 @@ export function Results() {
   const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set());
   const [selectedVerdicts, setSelectedVerdicts] = useState<Set<string>>(new Set());
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluationDisplay | null>(null);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [evaluationToDelete, setEvaluationToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -183,24 +205,32 @@ export function Results() {
     setSearchTerm('');
   };
 
-  const handleDeleteEvaluation = async (id: string) => {
-    if (confirm('Are you sure you want to delete this evaluation result?')) {
-      try {
-        await dataService.deleteEvaluation(id);
-        await loadData();
-        toast({
-          title: "Evaluation Deleted",
-          description: "The evaluation result has been deleted.",
-        });
-      } catch (error) {
-        console.error('Error deleting evaluation:', error);
-        toast({
-          title: "Error",
-          description: "Failed to delete evaluation. Please try again.",
-          variant: "destructive",
-        });
-      }
+  const handleDeleteEvaluation = async () => {
+    if (!evaluationToDelete) return;
+    
+    try {
+      await dataService.deleteEvaluation(evaluationToDelete);
+      await loadData();
+      toast({
+        title: "Evaluation Deleted",
+        description: "The evaluation result has been deleted.",
+      });
+    } catch (error) {
+      console.error('Error deleting evaluation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete evaluation. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setEvaluationToDelete(null);
+      setDeleteDialogOpen(false);
     }
+  };
+
+  const handleViewDetails = (evaluation: EvaluationDisplay) => {
+    setSelectedEvaluation(evaluation);
+    setDetailsModalOpen(true);
   };
 
   const stats = getStatistics();
@@ -464,14 +494,27 @@ export function Results() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteEvaluation(evaluation.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleViewDetails(evaluation)}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEvaluationToDelete(evaluation.id);
+                              setDeleteDialogOpen(true);
+                            }}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -481,6 +524,125 @@ export function Results() {
           )}
         </CardContent>
       </Card>
+
+      {/* Details Modal */}
+      <Dialog open={detailsModalOpen} onOpenChange={setDetailsModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Evaluation Details</DialogTitle>
+            <DialogDescription>
+              Complete information about this evaluation
+            </DialogDescription>
+          </DialogHeader>
+          {selectedEvaluation && (
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Submission ID</Label>
+                  <p className="text-sm font-mono mt-1">{selectedEvaluation.submissionId}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Evaluation Time</Label>
+                  <p className="text-sm mt-1">{new Date(selectedEvaluation.createdAt).toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Question</Label>
+                <p className="text-sm mt-1">
+                  {selectedEvaluation.questionData?.data.questionText || 'Unknown'}
+                </p>
+                {selectedEvaluation.questionData && (
+                  <Badge variant="outline" className="mt-2">
+                    {selectedEvaluation.questionData.data.questionType.replace(/_/g, ' ')}
+                  </Badge>
+                )}
+              </div>
+
+              {selectedEvaluation.submissionData?.answers[selectedEvaluation.questionId] && (
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">User Answer</Label>
+                  <div className="bg-muted/50 rounded-lg p-3 mt-1 space-y-2">
+                    {selectedEvaluation.submissionData.answers[selectedEvaluation.questionId].choice && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Choice:</p>
+                        <p className="text-sm">{selectedEvaluation.submissionData.answers[selectedEvaluation.questionId].choice}</p>
+                      </div>
+                    )}
+                    {selectedEvaluation.submissionData.answers[selectedEvaluation.questionId].reasoning && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Reasoning:</p>
+                        <p className="text-sm">{selectedEvaluation.submissionData.answers[selectedEvaluation.questionId].reasoning}</p>
+                      </div>
+                    )}
+                    {selectedEvaluation.submissionData.answers[selectedEvaluation.questionId].text && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Response:</p>
+                        <p className="text-sm">{selectedEvaluation.submissionData.answers[selectedEvaluation.questionId].text}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Judge</Label>
+                <p className="text-sm mt-1 font-medium">{selectedEvaluation.judgeData?.name || 'Unknown'}</p>
+                {selectedEvaluation.judgeData && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-muted-foreground">Model: {selectedEvaluation.judgeData.modelName}</p>
+                    {selectedEvaluation.judgeData.systemPrompt && (
+                      <div className="bg-muted/50 rounded-lg p-3 mt-2">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">System Prompt:</p>
+                        <p className="text-xs whitespace-pre-wrap">{selectedEvaluation.judgeData.systemPrompt}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Verdict</Label>
+                <div className="mt-1">
+                  <Badge 
+                    variant={
+                      selectedEvaluation.verdict === 'pass' ? 'default' : 
+                      selectedEvaluation.verdict === 'fail' ? 'destructive' : 
+                      'secondary'
+                    }
+                    className="text-sm"
+                  >
+                    {selectedEvaluation.verdict.toUpperCase()}
+                  </Badge>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">AI Reasoning</Label>
+                <div className="bg-muted/50 rounded-lg p-4 mt-1">
+                  <p className="text-sm whitespace-pre-wrap">{selectedEvaluation.reasoning}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this evaluation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The evaluation result will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setEvaluationToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEvaluation}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
