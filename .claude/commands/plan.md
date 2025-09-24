@@ -10,7 +10,7 @@ Creates a detailed implementation plan for AI Judge features based on requiremen
 
 - `/plan` - Creates full implementation plan for AI Judge system
 - `/plan {{FEATURE}}` - Plan specific feature (data-ingestion, judge-management, evaluation, results)
-
+- OUTPUT A MARKDOWN FILE WITH THE PLAN IN THE /Documentation Directory with todays date. 
 # Process
 
 ## 1. Implementation Phases
