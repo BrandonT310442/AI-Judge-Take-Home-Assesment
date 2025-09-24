@@ -19,7 +19,7 @@ import {
   BarChart3,
   Settings
 } from 'lucide-react';
-import { dataService } from '@/services/mockServices';
+import { dataService } from '@/services/dataService';
 import type { Queue, Submission, Judge, JudgeAssignment, EvaluationRun } from '@/types';
 
 export function QueueDetail() {

@@ -16,7 +16,7 @@ import {
   TrendingUp,
   Activity
 } from 'lucide-react';
-import { dataService } from '@/services/mockServices';
+import { dataService } from '@/services/dataService';
 import type { Queue, Judge, Evaluation, Submission } from '@/types';
 
 export function Dashboard() {
@@ -74,7 +74,12 @@ export function Dashboard() {
   };
 
   const handleFile = async (file: File) => {
-    if (file.type !== 'application/json') {
+    // Check if it's a JSON file (by type or extension)
+    const isJsonFile = file.type === 'application/json' || 
+                       file.type === '' || 
+                       (file.name && file.name.endsWith('.json'));
+    
+    if (!isJsonFile) {
       setUploadError('Please upload a JSON file');
       return;
     }
@@ -85,16 +90,14 @@ export function Dashboard() {
     setUploadProgress(0);
 
     try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      
       // Simulate upload progress
       for (let i = 0; i <= 100; i += 10) {
         setUploadProgress(i);
         await new Promise(resolve => setTimeout(resolve, 50));
       }
       
-      await dataService.uploadSubmissions(Array.isArray(data) ? data : [data]);
+      // Pass the file object directly
+      await dataService.uploadSubmissions(file);
       setUploadSuccess(true);
       await loadData();
       

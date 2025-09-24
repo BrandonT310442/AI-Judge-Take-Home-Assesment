@@ -8,7 +8,7 @@ import {
   Hash,
   ClipboardList
 } from 'lucide-react';
-import { dataService } from '@/services/mockServices';
+import { dataService } from '@/services/dataService';
 import type { Submission, Queue } from '@/types';
 
 export function Submissions() {

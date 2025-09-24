@@ -19,7 +19,7 @@ import {
   Search,
   Clock
 } from 'lucide-react';
-import { dataService } from '@/services/mockServices';
+import { dataService } from '@/services/dataService';
 import type { Evaluation, Judge, Submission, Question, Statistics } from '@/types';
 
 interface EvaluationDisplay extends Evaluation {

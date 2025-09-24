@@ -19,16 +19,12 @@ import {
   AlertCircle,
   CheckCircle
 } from 'lucide-react';
-import { dataService } from '@/services/mockServices';
+import { dataService } from '@/services/dataService';
 import type { Judge } from '@/types';
 
 const modelOptions = [
-  'gpt-4-turbo-preview',
-  'gpt-3.5-turbo',
-  'claude-3-opus',
-  'claude-3-sonnet',
-  'gemini-pro',
-  'gemini-ultra'
+  'openai/gpt-oss-120b',
+  'openai/gpt-oss-20b'
 ];
 
 export function Judges() {
@@ -39,7 +35,7 @@ export function Judges() {
   const [formData, setFormData] = useState({
     name: '',
     systemPrompt: '',
-    modelName: 'gpt-4-turbo-preview',
+    modelName: 'openai/gpt-oss-120b',
     isActive: true
   });
 
@@ -68,7 +64,7 @@ export function Judges() {
       setFormData({
         name: '',
         systemPrompt: '',
-        modelName: 'gpt-4-turbo-preview',
+        modelName: 'openai/gpt-oss-120b',
         isActive: true
       });
     }
@@ -81,7 +77,7 @@ export function Judges() {
     setFormData({
       name: '',
       systemPrompt: '',
-      modelName: 'gpt-4-turbo-preview',
+      modelName: 'openai/gpt-oss-120b',
       isActive: true
     });
   };

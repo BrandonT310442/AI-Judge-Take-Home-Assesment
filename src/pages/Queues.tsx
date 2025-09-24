@@ -10,7 +10,7 @@ import {
   Clock,
   BarChart3
 } from 'lucide-react';
-import { dataService } from '@/services/mockServices';
+import { dataService } from '@/services/dataService';
 import type { Queue, Submission, EvaluationRun } from '@/types';
 
 export function Queues() {
