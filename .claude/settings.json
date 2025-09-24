@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run build:*)",
+      "Bash(pip install:*)",
+      "Bash(poetry add:*)",
+      "Bash(poetry install:*)",
+      "Bash(python:*)",
+      "Bash(pytest:*)",
+      "Bash(uvicorn:*)",
+      "Bash(mkdir:*)",
+      "Bash(rm:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Bash(git stash:*)",
+      "Bash(docker:*)"
+    ],
+    "deny": [],
+    "defaultMode": "acceptEdits"
+  }
+}
