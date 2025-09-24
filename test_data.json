@@ -1,0 +1,57 @@
+[
+  {
+    "id": "sub_test_1",
+    "queueId": "queue_test",
+    "labelingTaskId": "task_test_1",
+    "createdAt": 1690000000000,
+    "questions": [
+      {
+        "rev": 1,
+        "data": {
+          "id": "q_test_1",
+          "questionType": "single_choice_with_reasoning",
+          "questionText": "What is the capital of France?"
+        }
+      },
+      {
+        "rev": 1,
+        "data": {
+          "id": "q_test_2",
+          "questionType": "free_form",
+          "questionText": "Explain the concept of recursion in programming."
+        }
+      }
+    ],
+    "answers": {
+      "q_test_1": {
+        "choice": "Paris",
+        "reasoning": "Paris is the capital and largest city of France."
+      },
+      "q_test_2": {
+        "text": "Recursion is a programming technique where a function calls itself to solve smaller instances of the same problem until it reaches a base case."
+      }
+    }
+  },
+  {
+    "id": "sub_test_2",
+    "queueId": "queue_test",
+    "labelingTaskId": "task_test_2",
+    "createdAt": 1690100000000,
+    "questions": [
+      {
+        "rev": 1,
+        "data": {
+          "id": "q_test_1",
+          "questionType": "single_choice_with_reasoning",
+          "questionText": "What is the capital of France?"
+        }
+      }
+    ],
+    "answers": {
+      "q_test_1": {
+        "choice": "London",
+        "reasoning": "I think London might be the capital of France."
+      }
+    }
+  }
+]
