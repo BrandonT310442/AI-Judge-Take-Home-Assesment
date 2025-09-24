@@ -3,6 +3,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { 
   FileJson,
   Clock,
@@ -14,6 +26,7 @@ import { dataService } from '@/services/dataService';
 import type { Submission, Queue } from '@/types';
 
 export function Submissions() {
+  const { toast } = useToast();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [queues, setQueues] = useState<Queue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,14 +66,20 @@ export function Submissions() {
   };
 
   const handleDeleteSubmission = async (id: string) => {
-    if (confirm(`Are you sure you want to delete submission ${id}? This will also delete all associated evaluations.`)) {
-      try {
-        await dataService.deleteSubmission(id);
-        await loadData();
-      } catch (error) {
-        console.error('Error deleting submission:', error);
-        alert('Failed to delete submission. Check console for details.');
-      }
+    try {
+      await dataService.deleteSubmission(id);
+      await loadData();
+      toast({
+        title: "Submission Deleted",
+        description: `Submission ${id} and its evaluations have been deleted.`,
+      });
+    } catch (error) {
+      console.error('Error deleting submission:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete submission. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -148,14 +167,31 @@ export function Submissions() {
                     <Badge variant="outline">
                       {submission.questions.length} questions
                     </Badge>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteSubmission(submission.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure you want to delete submission {submission.id}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will also delete all associated evaluations.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteSubmission(submission.id)}>
+                            OK
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </CardHeader>

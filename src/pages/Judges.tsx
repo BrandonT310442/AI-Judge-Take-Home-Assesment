@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
   MoreVertical, 
@@ -30,6 +31,7 @@ const modelOptions = [
 ];
 
 export function Judges() {
+  const { toast } = useToast();
   const [judges, setJudges] = useState<Judge[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -96,8 +98,21 @@ export function Judges() {
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this judge?')) {
-      await dataService.deleteJudge(id);
-      await loadJudges();
+      try {
+        await dataService.deleteJudge(id);
+        await loadJudges();
+        toast({
+          title: "Judge Deleted",
+          description: "The judge has been successfully deleted.",
+        });
+      } catch (error) {
+        console.error('Error deleting judge:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete judge. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 

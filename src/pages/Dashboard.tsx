@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Upload, 
   FileJson, 
@@ -20,6 +21,7 @@ import { dataService } from '@/services/dataService';
 import type { Queue, Judge, Evaluation, Submission } from '@/types';
 
 export function Dashboard() {
+  const { toast } = useToast();
   const [queues, setQueues] = useState<Queue[]>([]);
   const [judges, setJudges] = useState<Judge[]>([]);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
@@ -102,8 +104,10 @@ export function Dashboard() {
       await loadData();
       
       // Show success message with new behavior
-      console.log('✅ File uploaded successfully! New queue created with timestamp.');
-      alert('File uploaded successfully! A new queue has been created with a timestamp to allow duplicate uploads.');
+      toast({
+        title: "Upload Successful",
+        description: "A new queue has been created with a timestamp to allow duplicate uploads.",
+      });
       
       // Reset after success
       setTimeout(() => {

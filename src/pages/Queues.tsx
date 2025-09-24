@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import { 
   ClipboardList, 
   ArrowRight,
@@ -15,6 +16,7 @@ import { dataService } from '@/services/dataService';
 import type { Queue, Submission, EvaluationRun } from '@/types';
 
 export function Queues() {
+  const { toast } = useToast();
   const [queues, setQueues] = useState<Queue[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [runs, setRuns] = useState<EvaluationRun[]>([]);
@@ -59,9 +61,17 @@ export function Queues() {
       try {
         await dataService.deleteQueue(id);
         await loadData();
+        toast({
+          title: "Queue Deleted",
+          description: `Queue "${name}" and all associated data has been deleted.`,
+        });
       } catch (error) {
         console.error('Error deleting queue:', error);
-        alert('Failed to delete queue. Check console for details.');
+        toast({
+          title: "Error",
+          description: "Failed to delete queue. Please try again.",
+          variant: "destructive",
+        });
       }
     }
   };

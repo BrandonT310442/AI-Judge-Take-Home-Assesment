@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
 import { 
   ArrowLeft,
   PlayCircle,
@@ -25,6 +26,7 @@ import type { Queue, Submission, Judge, JudgeAssignment, EvaluationRun } from '@
 export function QueueDetail() {
   const { queueId } = useParams<{ queueId: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   const [queue, setQueue] = useState<Queue | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -148,10 +150,18 @@ export function QueueDetail() {
       await loadData();
       console.log('Judge assignments saved successfully');
       setSaving(false);
+      toast({
+        title: "Assignments Saved",
+        description: "Judge assignments have been saved successfully.",
+      });
     } catch (error) {
       console.error('Failed to save judge assignments:', error);
       setSaving(false);
-      alert('Failed to save judge assignments. Check the console for details.');
+      toast({
+        title: "Error",
+        description: "Failed to save judge assignments. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -177,13 +187,21 @@ export function QueueDetail() {
       setTimeout(() => {
         setRunning(false);
         setRunProgress(0);
+        toast({
+          title: "Evaluations Complete",
+          description: "All evaluations have been processed successfully.",
+        });
         navigate('/results');
       }, 1000);
     } catch (error) {
       console.error('Failed to run evaluations:', error);
       setRunning(false);
       setRunProgress(0);
-      alert('Failed to run evaluations. Check the console for details.');
+      toast({
+        title: "Error",
+        description: "Failed to run evaluations. Please check your LLM configuration.",
+        variant: "destructive",
+      });
     }
   };
 

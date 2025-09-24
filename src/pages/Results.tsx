@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Filter,
   ChartBar,
@@ -30,6 +31,7 @@ interface EvaluationDisplay extends Evaluation {
 }
 
 export function Results() {
+  const { toast } = useToast();
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [displayEvaluations, setDisplayEvaluations] = useState<EvaluationDisplay[]>([]);
   const [judges, setJudges] = useState<Judge[]>([]);
@@ -186,9 +188,17 @@ export function Results() {
       try {
         await dataService.deleteEvaluation(id);
         await loadData();
+        toast({
+          title: "Evaluation Deleted",
+          description: "The evaluation result has been deleted.",
+        });
       } catch (error) {
         console.error('Error deleting evaluation:', error);
-        alert('Failed to delete evaluation. Check console for details.');
+        toast({
+          title: "Error",
+          description: "Failed to delete evaluation. Please try again.",
+          variant: "destructive",
+        });
       }
     }
   };
