@@ -17,7 +17,8 @@ import {
   TrendingUp,
   TrendingDown,
   Search,
-  Clock
+  Clock,
+  Trash2
 } from 'lucide-react';
 import { dataService } from '@/services/dataService';
 import type { Evaluation, Judge, Submission, Question, Statistics } from '@/types';
@@ -178,6 +179,18 @@ export function Results() {
     setSelectedQuestions(new Set());
     setSelectedVerdicts(new Set());
     setSearchTerm('');
+  };
+
+  const handleDeleteEvaluation = async (id: string) => {
+    if (confirm('Are you sure you want to delete this evaluation result?')) {
+      try {
+        await dataService.deleteEvaluation(id);
+        await loadData();
+      } catch (error) {
+        console.error('Error deleting evaluation:', error);
+        alert('Failed to delete evaluation. Check console for details.');
+      }
+    }
   };
 
   const stats = getStatistics();
@@ -401,6 +414,7 @@ export function Results() {
                     <TableHead>Verdict</TableHead>
                     <TableHead>Reasoning</TableHead>
                     <TableHead>Time</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -438,6 +452,16 @@ export function Results() {
                           <Clock className="h-3 w-3 mr-1" />
                           {new Date(evaluation.createdAt).toLocaleString()}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteEvaluation(evaluation.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}

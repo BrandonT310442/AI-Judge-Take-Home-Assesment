@@ -57,6 +57,29 @@ export class SupabaseService {
     return data ? this.mapDbQueueToQueue(data) : null;
   }
 
+  async deleteQueue(id: string): Promise<void> {
+    if (!this.useSupabase) {
+      const queues = await this.getLocalQueues();
+      this.setLocalQueues(queues.filter(q => q.id !== id));
+      
+      // Also delete associated submissions
+      const submissions = await this.getLocalSubmissions();
+      this.setLocalSubmissions(submissions.filter(s => s.queueId !== id));
+      return;
+    }
+
+    // Delete queue (cascade will handle submissions)
+    const { error } = await supabase
+      .from('queues')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting queue:', error);
+      throw error;
+    }
+  }
+
   async upsertQueues(queues: Queue[]): Promise<void> {
     if (!this.useSupabase) {
       // For local storage, append to existing queues instead of replacing
@@ -151,6 +174,29 @@ export class SupabaseService {
 
     // Transform database response to Submission type
     return (data || []).map(item => this.mapDbSubmissionToSubmission(item));
+  }
+
+  async deleteSubmission(id: string): Promise<void> {
+    if (!this.useSupabase) {
+      const submissions = await this.getLocalSubmissions();
+      this.setLocalSubmissions(submissions.filter(s => s.id !== id));
+      
+      // Also delete associated evaluations
+      const evaluations = await this.getLocalEvaluations();
+      this.setLocalEvaluations(evaluations.filter(e => e.submissionId !== id));
+      return;
+    }
+
+    // Delete submission (cascade will handle evaluations)
+    const { error } = await supabase
+      .from('submissions')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting submission:', error);
+      throw error;
+    }
   }
 
   // ========== Judges ==========
@@ -409,6 +455,24 @@ export class SupabaseService {
     }
 
     return this.mapDbEvaluationToEvaluation(data);
+  }
+
+  async deleteEvaluation(id: string): Promise<void> {
+    if (!this.useSupabase) {
+      const evaluations = await this.getLocalEvaluations();
+      this.setLocalEvaluations(evaluations.filter(e => e.id !== id));
+      return;
+    }
+
+    const { error } = await supabase
+      .from('evaluations')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting evaluation:', error);
+      throw error;
+    }
   }
 
   async getEvaluations(filters?: FilterOptions): Promise<Evaluation[]> {

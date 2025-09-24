@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   FileJson,
   Clock,
   Hash,
-  ClipboardList
+  ClipboardList,
+  Trash2
 } from 'lucide-react';
 import { dataService } from '@/services/dataService';
 import type { Submission, Queue } from '@/types';
@@ -47,6 +49,18 @@ export function Submissions() {
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+    }
+  };
+
+  const handleDeleteSubmission = async (id: string) => {
+    if (confirm(`Are you sure you want to delete submission ${id}? This will also delete all associated evaluations.`)) {
+      try {
+        await dataService.deleteSubmission(id);
+        await loadData();
+      } catch (error) {
+        console.error('Error deleting submission:', error);
+        alert('Failed to delete submission. Check console for details.');
+      }
     }
   };
 
@@ -130,9 +144,19 @@ export function Submissions() {
                       </div>
                     </div>
                   </div>
-                  <Badge variant="outline">
-                    {submission.questions.length} questions
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">
+                      {submission.questions.length} questions
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteSubmission(submission.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

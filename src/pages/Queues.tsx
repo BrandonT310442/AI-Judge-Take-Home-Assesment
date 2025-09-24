@@ -8,7 +8,8 @@ import {
   ArrowRight,
   FileJson,
   Clock,
-  BarChart3
+  BarChart3,
+  Trash2
 } from 'lucide-react';
 import { dataService } from '@/services/dataService';
 import type { Queue, Submission, EvaluationRun } from '@/types';
@@ -51,6 +52,18 @@ export function Queues() {
       questionCount: totalQuestions,
       latestRun
     };
+  };
+
+  const handleDeleteQueue = async (id: string, name: string) => {
+    if (confirm(`Are you sure you want to delete queue "${name}"? This will also delete all associated submissions and evaluations.`)) {
+      try {
+        await dataService.deleteQueue(id);
+        await loadData();
+      } catch (error) {
+        console.error('Error deleting queue:', error);
+        alert('Failed to delete queue. Check console for details.');
+      }
+    }
   };
 
   return (
@@ -133,12 +146,22 @@ export function Queues() {
                       </div>
                     )}
 
-                    <Link to={`/queue/${queue.id}`}>
-                      <Button className="w-full" variant="outline">
-                        View Queue
-                        <ArrowRight className="ml-2 h-4 w-4" />
+                    <div className="flex gap-2">
+                      <Link to={`/queue/${queue.id}`} className="flex-1">
+                        <Button className="w-full" variant="outline">
+                          View Queue
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </Link>
+                      <Button 
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleDeleteQueue(queue.id, queue.name)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    </Link>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

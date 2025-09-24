@@ -41,6 +41,10 @@ export class APIService {
     return supabaseService.getSubmissionsByQueue(queueId);
   }
 
+  async deleteSubmission(id: string): Promise<void> {
+    return supabaseService.deleteSubmission(id);
+  }
+
   // ========== Queues ==========
   async getQueues(): Promise<Queue[]> {
     return supabaseService.getQueues();
@@ -48,6 +52,10 @@ export class APIService {
 
   async getQueue(id: string): Promise<Queue | null> {
     return supabaseService.getQueue(id);
+  }
+
+  async deleteQueue(id: string): Promise<void> {
+    return supabaseService.deleteQueue(id);
   }
 
   // ========== Judges ==========
@@ -251,6 +259,10 @@ export class APIService {
 
   async getEvaluations(filters?: FilterOptions): Promise<Evaluation[]> {
     return supabaseService.getEvaluations(filters);
+  }
+
+  async deleteEvaluation(id: string): Promise<void> {
+    return supabaseService.deleteEvaluation(id);
   }
 
   async getEvaluationsByQueue(queueId: string): Promise<Evaluation[]> {

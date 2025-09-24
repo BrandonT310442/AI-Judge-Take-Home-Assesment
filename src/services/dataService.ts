@@ -122,6 +122,24 @@ class DataService {
     return mockDataService.getQueue(id);
   }
 
+  async deleteQueue(id: string): Promise<void> {
+    return USE_REAL_BACKEND
+      ? apiService.deleteQueue(id)
+      : mockDataService.deleteQueue?.(id) || Promise.resolve();
+  }
+
+  async deleteSubmission(id: string): Promise<void> {
+    return USE_REAL_BACKEND
+      ? apiService.deleteSubmission(id)
+      : mockDataService.deleteSubmission?.(id) || Promise.resolve();
+  }
+
+  async deleteEvaluation(id: string): Promise<void> {
+    return USE_REAL_BACKEND
+      ? apiService.deleteEvaluation(id)
+      : mockDataService.deleteEvaluation?.(id) || Promise.resolve();
+  }
+
   // Evaluation Runs
   async getEvaluationRuns(queueId?: string): Promise<EvaluationRun[]> {
     return USE_REAL_BACKEND
