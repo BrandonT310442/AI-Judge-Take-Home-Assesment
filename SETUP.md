@@ -62,7 +62,7 @@ The application will automatically detect the environment variables and switch f
 2. **Create Judges**: Go to Judges page and create AI judges with:
    - Name: e.g., "Strict Grader"
    - System Prompt: Instructions for the AI judge
-   - Model: `openai/gpt-oss-120b` (recommended) or `openai/gpt-oss-20b` (faster)
+   - Model: `llama-3.1-70b-versatile` (recommended) or `mixtral-8x7b-32768` (faster)
 3. **Assign Judges**: Navigate to a queue and assign judges to questions
 4. **Run Evaluations**: Click "Run Evaluations" to process submissions
 5. **View Results**: Check the Results page for evaluation outcomes
@@ -100,9 +100,11 @@ The application will automatically detect the environment variables and switch f
 - Check API rate limits (free tier has limits)
 - Note: Groq may not support all OpenAI models directly
 
-## Available Models
+## Available Groq Models
 
-- **openai/gpt-oss-120b** - Best performance, 131K context window (recommended)
-- **openai/gpt-oss-20b** - Faster alternative, good balance of speed and quality
+- **llama-3.1-70b-versatile** - Best performance, good reasoning (recommended)
+- **mixtral-8x7b-32768** - Faster alternative, good balance of speed and quality
+- **llama3-70b-8192** - Alternative Llama model
+- **gemma2-9b-it** - Smaller, faster model
 
-Note: These models are accessed through Groq's API which supports OpenAI-compatible model names.
+Note: These are the actual Groq model names. Check [Groq's documentation](https://console.groq.com/docs/models) for the latest available models.

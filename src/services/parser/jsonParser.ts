@@ -46,19 +46,23 @@ export class JSONParser {
 
   private static extractQueues(submissions: ValidatedSubmission[]): Queue[] {
     const queueMap = new Map<string, Queue>();
+    const timestamp = Date.now();
     
     submissions.forEach(submission => {
-      if (!queueMap.has(submission.queueId)) {
-        queueMap.set(submission.queueId, {
-          id: submission.queueId,
-          name: `Queue ${submission.queueId}`,
-          description: `Imported queue from submissions`,
-          createdAt: Date.now(),
+      // Create unique queue ID with timestamp
+      const uniqueQueueId = `${submission.queueId}_${timestamp}`;
+      
+      if (!queueMap.has(uniqueQueueId)) {
+        queueMap.set(uniqueQueueId, {
+          id: uniqueQueueId,
+          name: `Queue ${submission.queueId} (${new Date(timestamp).toLocaleString()})`,
+          description: `Imported queue from submissions at ${new Date(timestamp).toLocaleString()}`,
+          createdAt: timestamp,
           submissionCount: 0
         });
       }
       
-      const queue = queueMap.get(submission.queueId)!;
+      const queue = queueMap.get(uniqueQueueId)!;
       queue.submissionCount = (queue.submissionCount || 0) + 1;
     });
     
@@ -66,9 +70,13 @@ export class JSONParser {
   }
 
   private static convertToSubmissions(validatedData: ValidatedSubmission[]): Submission[] {
+    const timestamp = Date.now();
+    
     return validatedData.map(item => ({
-      id: item.id,
-      queueId: item.queueId,
+      // Create unique submission ID with timestamp
+      id: `${item.id}_${timestamp}`,
+      // Update queue ID to match the new unique queue ID
+      queueId: `${item.queueId}_${timestamp}`,
       labelingTaskId: item.labelingTaskId,
       createdAt: item.createdAt,
       questions: item.questions.map(q => ({

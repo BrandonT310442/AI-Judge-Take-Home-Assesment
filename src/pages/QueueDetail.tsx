@@ -42,6 +42,10 @@ export function QueueDetail() {
       loadData();
     }
   }, [queueId]);
+  
+  useEffect(() => {
+    console.log('Current selectedJudges state:', selectedJudges);
+  }, [selectedJudges]);
 
   const loadData = async () => {
     if (!queueId) return;
@@ -54,6 +58,14 @@ export function QueueDetail() {
       dataService.getJudgeAssignments(queueId),
       dataService.getEvaluationRuns(queueId)
     ]);
+    
+    console.log('📚 Loaded data:', {
+      queue: queueData,
+      submissions: submissionsData.length,
+      judges: judgesData,
+      assignments: assignmentsData,
+      runs: runsData.length
+    });
     
     setQueue(queueData || null);
     setSubmissions(submissionsData);
@@ -69,6 +81,7 @@ export function QueueDetail() {
       }
       selections[assignment.questionId].add(assignment.judgeId);
     });
+    console.log('📌 Initialized selectedJudges from assignments:', selections);
     setSelectedJudges(selections);
     
     setLoading(false);
@@ -95,6 +108,7 @@ export function QueueDetail() {
   };
 
   const handleJudgeToggle = (questionId: string, judgeId: string, checked: boolean) => {
+    console.log(`🔲 Toggle judge: question=${questionId}, judge=${judgeId}, checked=${checked}`);
     setSelectedJudges(prev => {
       const newSelections = { ...prev };
       if (!newSelections[questionId]) {
@@ -103,10 +117,13 @@ export function QueueDetail() {
       
       if (checked) {
         newSelections[questionId].add(judgeId);
+        console.log(`➕ Added judge ${judgeId} to question ${questionId}`);
       } else {
         newSelections[questionId].delete(judgeId);
+        console.log(`➖ Removed judge ${judgeId} from question ${questionId}`);
       }
       
+      console.log(`📝 New selections for question ${questionId}:`, Array.from(newSelections[questionId] || []));
       return newSelections;
     });
   };
@@ -115,36 +132,59 @@ export function QueueDetail() {
     if (!queueId) return;
     
     setSaving(true);
+    console.log('Saving judge assignments for queue:', queueId);
+    console.log('Selected judges:', selectedJudges);
     
-    for (const [questionId, judgeIds] of Object.entries(selectedJudges)) {
-      await dataService.assignJudges(queueId, questionId, Array.from(judgeIds));
+    try {
+      // Get all questions to handle unassignments
+      const questions = getAllQuestions();
+      
+      for (const question of questions) {
+        const judgeIds = selectedJudges[question.id] || new Set();
+        console.log(`Assigning ${judgeIds.size} judges to question ${question.id}:`, Array.from(judgeIds));
+        await dataService.assignJudges(queueId, question.id, Array.from(judgeIds));
+      }
+      
+      await loadData();
+      console.log('Judge assignments saved successfully');
+      setSaving(false);
+    } catch (error) {
+      console.error('Failed to save judge assignments:', error);
+      setSaving(false);
+      alert('Failed to save judge assignments. Check the console for details.');
     }
-    
-    await loadData();
-    setSaving(false);
   };
 
   const handleRunEvaluations = async () => {
     if (!queueId) return;
     
-    setRunning(true);
-    setRunProgress(0);
-    
-    // Simulate progress
-    const progressInterval = setInterval(() => {
-      setRunProgress(prev => Math.min(prev + 10, 90));
-    }, 200);
-    
-    const run = await dataService.runEvaluations(queueId);
-    
-    clearInterval(progressInterval);
-    setRunProgress(100);
-    
-    setTimeout(() => {
+    try {
+      setRunning(true);
+      setRunProgress(0);
+      
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setRunProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+      
+      console.log('Starting evaluation run for queue:', queueId);
+      const run = await dataService.runEvaluations(queueId);
+      console.log('Evaluation run completed:', run);
+      
+      clearInterval(progressInterval);
+      setRunProgress(100);
+      
+      setTimeout(() => {
+        setRunning(false);
+        setRunProgress(0);
+        navigate('/results');
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to run evaluations:', error);
       setRunning(false);
       setRunProgress(0);
-      navigate('/results');
-    }, 1000);
+      alert('Failed to run evaluations. Check the console for details.');
+    }
   };
 
   if (loading) {

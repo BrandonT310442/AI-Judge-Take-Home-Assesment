@@ -59,7 +59,9 @@ export class SupabaseService {
 
   async upsertQueues(queues: Queue[]): Promise<void> {
     if (!this.useSupabase) {
-      this.setLocalQueues(queues);
+      // For local storage, append to existing queues instead of replacing
+      const existingQueues = this.getLocalQueues();
+      this.setLocalQueues([...existingQueues, ...queues]);
       return;
     }
 
@@ -72,12 +74,13 @@ export class SupabaseService {
       submission_count: queue.submissionCount
     }));
 
+    // Use insert instead of upsert to always create new records
     const { error } = await supabase
       .from('queues')
-      .upsert(dbQueues, { onConflict: 'id' });
+      .insert(dbQueues);
 
     if (error) {
-      console.error('Error upserting queues:', error);
+      console.error('Error inserting queues:', error);
       throw error;
     }
   }
@@ -85,7 +88,9 @@ export class SupabaseService {
   // ========== Submissions ==========
   async uploadSubmissions(submissions: Submission[]): Promise<void> {
     if (!this.useSupabase) {
-      this.setLocalSubmissions(submissions);
+      // For local storage, append to existing submissions instead of replacing
+      const existingSubmissions = this.getLocalSubmissions();
+      this.setLocalSubmissions([...existingSubmissions, ...submissions]);
       return;
     }
 
@@ -99,9 +104,10 @@ export class SupabaseService {
       answers: submission.answers
     }));
 
+    // Use insert instead of upsert to always create new records
     const { error } = await supabase
       .from('submissions')
-      .upsert(dbSubmissions, { onConflict: 'id' });
+      .insert(dbSubmissions);
 
     if (error) {
       console.error('Error uploading submissions:', error);
@@ -270,6 +276,8 @@ export class SupabaseService {
 
   // ========== Judge Assignments ==========
   async assignJudges(queueId: string, questionId: string, judgeIds: string[]): Promise<void> {
+    console.log(`📝 Assigning ${judgeIds.length} judges to question ${questionId} in queue ${queueId}`);
+    
     if (!this.useSupabase) {
       const assignments = await this.getLocalAssignments();
       // Remove existing assignments for this queue/question
@@ -285,15 +293,24 @@ export class SupabaseService {
         createdAt: Date.now()
       }));
       this.setLocalAssignments([...filtered, ...newAssignments]);
+      console.log(`✅ Stored ${newAssignments.length} assignments locally`);
       return;
     }
 
     // Delete existing assignments
-    await supabase
+    console.log('🗑️ Deleting existing assignments for queue:', queueId, 'question:', questionId);
+    const { data: deleteData, error: deleteError } = await supabase
       .from('judge_assignments')
       .delete()
       .eq('queue_id', queueId)
-      .eq('question_id', questionId);
+      .eq('question_id', questionId)
+      .select();
+    
+    if (deleteError) {
+      console.error('❌ Error deleting existing assignments:', deleteError);
+    } else {
+      console.log(`🗑️ Deleted ${deleteData?.length || 0} existing assignments`);
+    }
 
     // Insert new assignments
     if (judgeIds.length > 0) {
@@ -303,14 +320,25 @@ export class SupabaseService {
         judge_id: judgeId
       }));
 
-      const { error } = await supabase
+      console.log('📤 Inserting assignments to Supabase:', JSON.stringify(assignments, null, 2));
+      const { data: insertData, error } = await supabase
         .from('judge_assignments')
-        .insert(assignments);
+        .insert(assignments)
+        .select();
 
       if (error) {
-        console.error('Error assigning judges:', error);
+        console.error('❌ Error assigning judges - Full error:', error);
+        console.error('❌ Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
         throw error;
       }
+      console.log(`✅ Successfully assigned ${assignments.length} judges. Inserted records:`, insertData);
+    } else {
+      console.log('ℹ️ No judges to assign (empty judgeIds array)');
     }
   }
 
@@ -320,6 +348,7 @@ export class SupabaseService {
       return queueId ? assignments.filter(a => a.queueId === queueId) : assignments;
     }
 
+    console.log(`🔍 Fetching judge assignments for queue: ${queueId || 'all'}`);
     let query = supabase.from('judge_assignments').select('*');
     if (queueId) {
       query = query.eq('queue_id', queueId);
@@ -328,17 +357,22 @@ export class SupabaseService {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching assignments:', error);
+      console.error('❌ Error fetching assignments:', error);
       return [];
     }
 
-    return (data || []).map(item => ({
+    console.log(`📋 Raw assignments from Supabase:`, data);
+    
+    const mapped = (data || []).map(item => ({
       id: item.id,
       queueId: item.queue_id,
       questionId: item.question_id,
       judgeId: item.judge_id,
       createdAt: new Date(item.created_at).getTime()
     }));
+    
+    console.log(`✅ Mapped ${mapped.length} assignments:`, mapped);
+    return mapped;
   }
 
   // ========== Evaluations ==========

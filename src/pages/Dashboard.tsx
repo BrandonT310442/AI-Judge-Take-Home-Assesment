@@ -101,6 +101,10 @@ export function Dashboard() {
       setUploadSuccess(true);
       await loadData();
       
+      // Show success message with new behavior
+      console.log('✅ File uploaded successfully! New queue created with timestamp.');
+      alert('File uploaded successfully! A new queue has been created with a timestamp to allow duplicate uploads.');
+      
       // Reset after success
       setTimeout(() => {
         setUploadSuccess(false);
@@ -110,6 +114,9 @@ export function Dashboard() {
       setUploadError('Failed to parse JSON file. Please check the file format.');
     } finally {
       setUploading(false);
+      // Reset file input to allow same file selection
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
     }
   };
 
