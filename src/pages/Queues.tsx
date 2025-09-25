@@ -4,6 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { 
   ClipboardList, 
   ArrowRight,
@@ -57,22 +68,20 @@ export function Queues() {
   };
 
   const handleDeleteQueue = async (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete queue "${name}"? This will also delete all associated submissions and evaluations.`)) {
-      try {
-        await dataService.deleteQueue(id);
-        await loadData();
-        toast({
-          title: "Queue Deleted",
-          description: `Queue "${name}" and all associated data has been deleted.`,
-        });
-      } catch (error) {
-        console.error('Error deleting queue:', error);
-        toast({
-          title: "Error",
-          description: "Failed to delete queue. Please try again.",
-          variant: "destructive",
-        });
-      }
+    try {
+      await dataService.deleteQueue(id);
+      await loadData();
+      toast({
+        title: "Queue Deleted",
+        description: `Queue "${name}" and all associated data has been deleted.`,
+      });
+    } catch (error) {
+      console.error('Error deleting queue:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete queue. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -163,14 +172,31 @@ export function Queues() {
                           <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                       </Link>
-                      <Button 
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleDeleteQueue(queue.id, queue.name)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            variant="outline"
+                            size="icon"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure you want to delete queue "{queue.name}"?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will also delete all associated submissions and evaluations.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteQueue(queue.id, queue.name)}>
+                              OK
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 </CardContent>

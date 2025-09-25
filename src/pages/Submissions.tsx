@@ -67,11 +67,19 @@ export function Submissions() {
 
   const handleDeleteSubmission = async (id: string) => {
     try {
+      // Check if this is the last submission in its queue
+      const submission = submissions.find(s => s.id === id);
+      const sameQueueSubmissions = submissions.filter(s => s.queueId === submission?.queueId);
+      const isLastInQueue = sameQueueSubmissions.length === 1;
+      
       await dataService.deleteSubmission(id);
       await loadData();
+      
       toast({
         title: "Submission Deleted",
-        description: `Submission ${id} and its evaluations have been deleted.`,
+        description: isLastInQueue 
+          ? `Submission ${id} and its queue have been deleted.`
+          : `Submission ${id} and its evaluations have been deleted.`,
       });
     } catch (error) {
       console.error('Error deleting submission:', error);
@@ -181,7 +189,7 @@ export function Submissions() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Are you sure you want to delete submission {submission.id}?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will also delete all associated evaluations.
+                            This will also delete all associated evaluations. If this is the last submission in its queue, the queue will also be deleted.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

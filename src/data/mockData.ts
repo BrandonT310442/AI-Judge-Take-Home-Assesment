@@ -84,7 +84,7 @@ export const mockJudges: Judge[] = [
     id: 'judge_1',
     name: 'Accuracy Judge',
     systemPrompt: 'You are an expert judge evaluating the accuracy of answers. Be strict but fair. Focus on factual correctness and logical reasoning.',
-    modelName: 'gpt-4-turbo-preview',
+    modelName: 'openai/gpt-oss-120b',
     isActive: true,
     createdAt: 1689900000000,
     updatedAt: 1689900000000
@@ -93,7 +93,7 @@ export const mockJudges: Judge[] = [
     id: 'judge_2',
     name: 'Reasoning Quality',
     systemPrompt: 'Evaluate the quality of reasoning provided in answers. Consider clarity, logical flow, and completeness of explanations.',
-    modelName: 'claude-3-opus',
+    modelName: 'openai/gpt-oss-120b',
     isActive: true,
     createdAt: 1689910000000,
     updatedAt: 1689910000000
@@ -102,7 +102,7 @@ export const mockJudges: Judge[] = [
     id: 'judge_3',
     name: 'Technical Expert',
     systemPrompt: 'You are a technical expert. Evaluate answers for technical accuracy, proper terminology, and depth of understanding.',
-    modelName: 'gemini-pro',
+    modelName: 'openai/gpt-oss-20b',
     isActive: true,
     createdAt: 1689920000000,
     updatedAt: 1689920000000
@@ -111,7 +111,7 @@ export const mockJudges: Judge[] = [
     id: 'judge_4',
     name: 'Clarity Assessor',
     systemPrompt: 'Assess the clarity and comprehensibility of answers. Focus on communication quality rather than technical accuracy.',
-    modelName: 'gpt-3.5-turbo',
+    modelName: 'llama-3.1-8b-instant',
     isActive: false,
     createdAt: 1689930000000,
     updatedAt: 1689930000000

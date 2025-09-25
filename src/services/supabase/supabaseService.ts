@@ -97,10 +97,10 @@ export class SupabaseService {
       submission_count: queue.submissionCount
     }));
 
-    // Use insert instead of upsert to always create new records
+    // Use upsert to handle both new and existing queues
     const { error } = await supabase
       .from('queues')
-      .insert(dbQueues);
+      .upsert(dbQueues, { onConflict: 'id' });
 
     if (error) {
       console.error('Error inserting queues:', error);
@@ -127,10 +127,10 @@ export class SupabaseService {
       answers: submission.answers
     }));
 
-    // Use insert instead of upsert to always create new records
+    // Use upsert to handle both new and existing submissions
     const { error } = await supabase
       .from('submissions')
-      .insert(dbSubmissions);
+      .upsert(dbSubmissions, { onConflict: 'id' });
 
     if (error) {
       console.error('Error uploading submissions:', error);
@@ -179,23 +179,78 @@ export class SupabaseService {
   async deleteSubmission(id: string): Promise<void> {
     if (!this.useSupabase) {
       const submissions = await this.getLocalSubmissions();
-      this.setLocalSubmissions(submissions.filter(s => s.id !== id));
+      const submissionToDelete = submissions.find(s => s.id === id);
       
-      // Also delete associated evaluations
-      const evaluations = await this.getLocalEvaluations();
-      this.setLocalEvaluations(evaluations.filter(e => e.submissionId !== id));
+      if (submissionToDelete) {
+        // Delete the submission
+        this.setLocalSubmissions(submissions.filter(s => s.id !== id));
+        
+        // Check if this was the last submission in its queue
+        const remainingInQueue = submissions.filter(
+          s => s.id !== id && s.queueId === submissionToDelete.queueId
+        );
+        
+        if (remainingInQueue.length === 0) {
+          // Delete the queue if no submissions remain
+          const queues = await this.getLocalQueues();
+          this.setLocalQueues(queues.filter(q => q.id !== submissionToDelete.queueId));
+        }
+        
+        // Also delete associated evaluations
+        const evaluations = await this.getLocalEvaluations();
+        this.setLocalEvaluations(evaluations.filter(e => e.submissionId !== id));
+      }
       return;
     }
 
+    // First get the submission to find its queue
+    const { data: submissionData, error: fetchError } = await supabase
+      .from('submissions')
+      .select('queue_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching submission:', fetchError);
+      throw fetchError;
+    }
+
+    const queueId = submissionData?.queue_id;
+
     // Delete submission (cascade will handle evaluations)
-    const { error } = await supabase
+    const { error: deleteError } = await supabase
       .from('submissions')
       .delete()
       .eq('id', id);
 
-    if (error) {
-      console.error('Error deleting submission:', error);
-      throw error;
+    if (deleteError) {
+      console.error('Error deleting submission:', deleteError);
+      throw deleteError;
+    }
+
+    // Check if there are any remaining submissions in this queue
+    if (queueId) {
+      const { data: remainingSubmissions, error: countError } = await supabase
+        .from('submissions')
+        .select('id')
+        .eq('queue_id', queueId)
+        .limit(1);
+
+      if (countError) {
+        console.error('Error checking remaining submissions:', countError);
+      } else if (!remainingSubmissions || remainingSubmissions.length === 0) {
+        // No more submissions in this queue, delete the queue
+        const { error: queueDeleteError } = await supabase
+          .from('queues')
+          .delete()
+          .eq('id', queueId);
+
+        if (queueDeleteError) {
+          console.error('Error deleting empty queue:', queueDeleteError);
+        } else {
+          console.log(`Deleted empty queue ${queueId} after removing last submission`);
+        }
+      }
     }
   }
 

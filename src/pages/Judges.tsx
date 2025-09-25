@@ -24,10 +24,9 @@ import { dataService } from '@/services/dataService';
 import type { Judge } from '@/types';
 
 const modelOptions = [
-  'llama-3.1-70b-versatile',
-  'mixtral-8x7b-32768',
-  'llama3-70b-8192',
-  'gemma2-9b-it'
+  'openai/gpt-oss-120b',
+  'openai/gpt-oss-20b',
+  'llama-3.1-8b-instant'
 ];
 
 export function Judges() {
@@ -68,7 +67,7 @@ export function Judges() {
       setFormData({
         name: '',
         systemPrompt: '',
-        modelName: 'llama-3.1-70b-versatile',
+        modelName: 'openai/gpt-oss-120b',
         isActive: true
       });
     }

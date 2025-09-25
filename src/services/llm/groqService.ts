@@ -44,7 +44,7 @@ export class GroqService {
             content: prompt
           }
         ],
-        model: params.modelName || "llama-3.1-70b-versatile",
+        model: params.modelName || "openai/gpt-oss-120b",
         temperature: 0.3,
         max_tokens: 500,
         response_format: { type: "json_object" }
