@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { History, FlaskConical, ArrowLeft, Save, Upload, Hash, DollarSign } from 'lucide-react';
+import { History, FlaskConical, ArrowLeft, Save, Upload, Hash, DollarSign, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 
@@ -61,8 +61,11 @@ export function PromptPlayground() {
 
   // Load version history on mount
   useEffect(() => {
-    const history = playgroundService.getVersionHistory();
-    setVersions(history);
+    const loadVersions = async () => {
+      const history = await playgroundService.getVersionHistory();
+      setVersions(history);
+    };
+    loadVersions();
   }, []);
 
   // Update token count when prompt or model changes
@@ -105,8 +108,8 @@ export function PromptPlayground() {
       setResults(evaluationResults);
 
       // Auto-save version with results
-      const version = playgroundService.saveVersion(prompt, model, evaluationResults);
-      setVersions([version, ...versions.slice(0, 9)]);
+      const version = await playgroundService.saveVersion(prompt, model, evaluationResults, temperature, maxTokens);
+      setVersions([version, ...versions.slice(0, 19)]);
 
       toast({
         title: 'Evaluation Complete',
@@ -125,14 +128,14 @@ export function PromptPlayground() {
   }, [prompt, samples, selectedSamples, model, temperature, maxTokens, versions, toast]);
 
   // Handle save version
-  const handleSaveVersion = useCallback(() => {
-    const version = playgroundService.saveVersion(prompt, model, results.length > 0 ? results : undefined);
-    setVersions([version, ...versions.slice(0, 9)]);
+  const handleSaveVersion = useCallback(async () => {
+    const version = await playgroundService.saveVersion(prompt, model, results.length > 0 ? results : undefined, temperature, maxTokens);
+    setVersions([version, ...versions.slice(0, 19)]);
     toast({
       title: 'Version Saved',
       description: 'Your prompt version has been saved to history.'
     });
-  }, [prompt, model, results, versions, toast]);
+  }, [prompt, model, results, versions, temperature, maxTokens, toast]);
 
   // Handle export to judge
   const handleExportToJudge = useCallback(async () => {
@@ -190,6 +193,37 @@ export function PromptPlayground() {
     setShowComparison(true);
     setShowHistory(false);
   }, []);
+
+  // Reload versions when history sheet opens
+  useEffect(() => {
+    if (showHistory) {
+      const loadVersions = async () => {
+        const history = await playgroundService.getVersionHistory();
+        setVersions(history);
+      };
+      loadVersions();
+    }
+  }, [showHistory]);
+
+  // Handle delete version
+  const handleDeleteVersion = useCallback(async (versionId: string) => {
+    try {
+      await playgroundService.deleteVersion(versionId);
+      // Reload versions after deletion
+      const updatedVersions = await playgroundService.getVersionHistory();
+      setVersions(updatedVersions);
+      toast({
+        title: 'Version Deleted',
+        description: 'The version has been removed from history.'
+      });
+    } catch (error) {
+      toast({
+        title: 'Delete Failed',
+        description: 'Failed to delete the version.',
+        variant: 'destructive'
+      });
+    }
+  }, [toast]);
 
   // Handle reset
   const handleReset = useCallback(() => {
@@ -380,9 +414,19 @@ Provide clear justification for your verdict."
                       <CardTitle className="text-sm">
                         Version {versions.length - index}
                       </CardTitle>
-                      <Badge variant="outline">
-                        {new Date(version.timestamp).toLocaleString()}
-                      </Badge>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="outline">
+                          {new Date(version.timestamp).toLocaleString()}
+                        </Badge>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => handleDeleteVersion(version.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2">

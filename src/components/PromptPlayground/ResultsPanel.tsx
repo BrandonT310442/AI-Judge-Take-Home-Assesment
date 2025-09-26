@@ -47,10 +47,6 @@ export function ResultsPanel({
     const avgLatency = successful.length > 0
       ? successful.reduce((sum, r) => sum + (r.latency || 0), 0) / successful.length
       : 0;
-    const avgConfidence = successful
-      .filter(r => r.confidence !== undefined)
-      .reduce((sum, r) => sum + (r.confidence || 0), 0) / 
-      (successful.filter(r => r.confidence !== undefined).length || 1);
 
     return {
       total: results.length,
@@ -61,7 +57,6 @@ export function ResultsPanel({
       verdictCounts,
       totalTokens,
       avgLatency,
-      avgConfidence,
       accuracyRate: results.filter(r => r.matchesExpected !== undefined).length > 0
         ? (matchingExpected.length / results.filter(r => r.matchesExpected !== undefined).length) * 100
         : 0
@@ -81,11 +76,6 @@ export function ResultsPanel({
     }
   };
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'text-green-600';
-    if (confidence >= 0.6) return 'text-yellow-600';
-    return 'text-red-600';
-  };
 
   if (isLoading && progress) {
     return (
@@ -160,15 +150,6 @@ export function ResultsPanel({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Confidence</span>
-                <AlertCircle className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <p className="text-lg font-bold">{(stats.avgConfidence * 100).toFixed(0)}%</p>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Verdict Distribution */}
@@ -249,11 +230,6 @@ export function ResultsPanel({
                             </span>
                           )}
                         </div>
-                        {result.confidence !== undefined && (
-                          <span className={`text-xs font-medium ${getConfidenceColor(result.confidence)}`}>
-                            {(result.confidence * 100).toFixed(0)}% confident
-                          </span>
-                        )}
                       </div>
 
                       {/* Reasoning */}

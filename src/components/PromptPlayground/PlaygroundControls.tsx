@@ -42,9 +42,6 @@ const MODEL_OPTIONS = [
   { value: 'openai/gpt-oss-120b', label: 'GPT OSS 120B' },
   { value: 'openai/gpt-oss-20b', label: 'GPT OSS 20B' },
   { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B' },
-  { value: 'gpt-4', label: 'GPT-4' },
-  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
 ];
 
 export function PlaygroundControls({

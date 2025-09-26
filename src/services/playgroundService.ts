@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 import { groqService } from './llm/groqService';
 import tokenizerService from './tokenizer';
+import { supabase } from './supabase/client';
 import type { Question, Answer } from '@/types';
 
 export interface SampleAnswer {
@@ -21,7 +22,6 @@ export interface PlaygroundEvaluationResult {
   sampleId: string;
   verdict?: 'pass' | 'fail' | 'inconclusive';
   reasoning?: string;
-  confidence?: number;
   tokensUsed?: number;
   latency?: number;
   matchesExpected?: boolean;
@@ -37,6 +37,8 @@ export interface PromptVersion {
   metadata: {
     model: string;
     tokenCount: number;
+    temperature?: number;
+    maxTokens?: number;
     avgLatency?: number;
     successRate?: number;
     totalCost?: number;
@@ -101,7 +103,6 @@ export const DEFAULT_SAMPLES: SampleAnswer[] = [
 ];
 
 class PlaygroundService {
-  private versionHistory: PromptVersion[] = [];
   private evaluationCache = new Map<string, PlaygroundEvaluationResult>();
 
   async evaluateSample(
@@ -144,14 +145,10 @@ class PlaygroundService {
       const latency = Date.now() - startTime;
       const tokensUsed = tokenizerService.countTokens(prompt + sample.question + JSON.stringify(sample.answer), model);
       
-      // Extract confidence if mentioned in reasoning
-      const confidence = this.extractConfidence(result.reasoning);
-      
       const evaluationResult: PlaygroundEvaluationResult = {
         sampleId: sample.id,
         verdict: result.verdict,
         reasoning: result.reasoning,
-        confidence,
         tokensUsed,
         latency,
         matchesExpected: sample.expectedVerdict ? result.verdict === sample.expectedVerdict : undefined,
@@ -198,16 +195,65 @@ class PlaygroundService {
     return results;
   }
 
-  saveVersion(
+  async saveVersion(
     content: string,
     model: string,
-    results?: PlaygroundEvaluationResult[]
-  ): PromptVersion {
+    results?: PlaygroundEvaluationResult[],
+    temperature: number = 0.3,
+    maxTokens: number = 500
+  ): Promise<PromptVersion> {
     const tokenCount = tokenizerService.countTokens(content, model);
     const totalCost = results 
       ? results.reduce((sum, r) => sum + (r.tokensUsed ? tokenizerService.estimateCost(r.tokensUsed, null, model) : 0), 0)
       : 0;
     
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      
+      if (session?.session?.user) {
+        // Save to Supabase if authenticated
+        const { data, error } = await supabase
+          .from('prompt_versions')
+          .insert({
+            content,
+            model,
+            temperature,
+            max_tokens: maxTokens,
+            token_count: tokenCount,
+            results: results || null,
+            metadata: {
+              avgLatency: results ? this.calculateAvgLatency(results) : undefined,
+              successRate: results ? this.calculateSuccessRate(results) : undefined,
+              totalCost
+            },
+            user_id: session.session.user.id
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        return {
+          id: data.id,
+          content: data.content,
+          timestamp: new Date(data.created_at).getTime(),
+          results: data.results,
+          metadata: {
+            model: data.model,
+            tokenCount: data.token_count,
+            temperature: data.temperature,
+            maxTokens: data.max_tokens,
+            avgLatency: data.metadata?.avgLatency,
+            successRate: data.metadata?.successRate,
+            totalCost: data.metadata?.totalCost
+          }
+        };
+      }
+    } catch (error) {
+      console.error('Error saving version to Supabase:', error);
+    }
+    
+    // Fallback to localStorage if not authenticated or error
     const version: PromptVersion = {
       id: nanoid(),
       content,
@@ -216,28 +262,117 @@ class PlaygroundService {
       metadata: {
         model,
         tokenCount,
+        temperature,
+        maxTokens,
         avgLatency: results ? this.calculateAvgLatency(results) : undefined,
         successRate: results ? this.calculateSuccessRate(results) : undefined,
         totalCost
       }
     };
     
-    // Keep only last 10 versions
-    this.versionHistory = [version, ...this.versionHistory].slice(0, 10);
+    // Store in localStorage as fallback
+    const stored = localStorage.getItem('playground_versions');
+    let versions: PromptVersion[] = [];
+    if (stored) {
+      try {
+        versions = JSON.parse(stored);
+      } catch {
+        versions = [];
+      }
+    }
+    versions = [version, ...versions].slice(0, 20);
+    localStorage.setItem('playground_versions', JSON.stringify(versions));
+    
     return version;
   }
 
-  getVersionHistory(): PromptVersion[] {
-    return this.versionHistory;
+  async getVersionHistory(): Promise<PromptVersion[]> {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      
+      if (session?.session?.user) {
+        const { data, error } = await supabase
+          .from('prompt_versions')
+          .select('*')
+          .eq('user_id', session.session.user.id)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (error) throw error;
+
+        return (data || []).map(row => ({
+          id: row.id,
+          content: row.content,
+          timestamp: new Date(row.created_at).getTime(),
+          results: row.results,
+          metadata: {
+            model: row.model,
+            tokenCount: row.token_count,
+            temperature: row.temperature,
+            maxTokens: row.max_tokens,
+            avgLatency: row.metadata?.avgLatency,
+            successRate: row.metadata?.successRate,
+            totalCost: row.metadata?.totalCost
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching version history from Supabase:', error);
+    }
+    
+    // Fallback to localStorage if not authenticated or error
+    const stored = localStorage.getItem('playground_versions');
+    if (!stored) return [];
+    
+    try {
+      const versions = JSON.parse(stored) as PromptVersion[];
+      return versions.slice(0, 20);
+    } catch {
+      return [];
+    }
   }
 
-  getVersionById(id: string): PromptVersion | undefined {
-    return this.versionHistory.find(v => v.id === id);
+  async getVersionById(id: string): Promise<PromptVersion | undefined> {
+    const versions = await this.getVersionHistory();
+    return versions.find(v => v.id === id);
   }
 
-  compareVersions(version1Id: string, version2Id: string) {
-    const v1 = this.getVersionById(version1Id);
-    const v2 = this.getVersionById(version2Id);
+  async deleteVersion(id: string): Promise<void> {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      
+      if (session?.session?.user) {
+        // Delete from Supabase if authenticated
+        const { error } = await supabase
+          .from('prompt_versions')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', session.session.user.id);
+
+        if (error) throw error;
+        console.log('Version deleted from Supabase:', id);
+      }
+    } catch (error) {
+      console.error('Error deleting version from Supabase:', error);
+    }
+    
+    // Also delete from localStorage (for fallback or if not using Supabase)
+    const stored = localStorage.getItem('playground_versions');
+    if (stored) {
+      try {
+        let versions = JSON.parse(stored) as PromptVersion[];
+        versions = versions.filter(v => v.id !== id);
+        localStorage.setItem('playground_versions', JSON.stringify(versions));
+        console.log('Version deleted from localStorage:', id);
+      } catch (error) {
+        console.error('Error deleting from localStorage:', error);
+      }
+    }
+  }
+
+  async compareVersions(version1Id: string, version2Id: string) {
+    const v1 = await this.getVersionById(version1Id);
+    const v2 = await this.getVersionById(version2Id);
     
     if (!v1 || !v2) {
       throw new Error('Version not found');
@@ -253,37 +388,6 @@ class PlaygroundService {
     };
   }
 
-  private extractConfidence(reasoning: string): number | undefined {
-    // Look for confidence patterns in the reasoning
-    const patterns = [
-      /(\d+)%\s*confident/i,
-      /confidence:\s*(\d+)%/i,
-      /certainty:\s*(\d+)%/i,
-      /sure:\s*(\d+)%/i
-    ];
-    
-    for (const pattern of patterns) {
-      const match = reasoning.match(pattern);
-      if (match && match[1]) {
-        return parseInt(match[1]) / 100;
-      }
-    }
-    
-    // Estimate confidence based on keywords
-    const highConfidenceWords = ['clearly', 'definitely', 'certainly', 'obviously', 'undoubtedly'];
-    const lowConfidenceWords = ['possibly', 'maybe', 'perhaps', 'might', 'could be', 'unclear'];
-    
-    const reasoningLower = reasoning.toLowerCase();
-    
-    if (highConfidenceWords.some(word => reasoningLower.includes(word))) {
-      return 0.9;
-    }
-    if (lowConfidenceWords.some(word => reasoningLower.includes(word))) {
-      return 0.5;
-    }
-    
-    return 0.75; // Default moderate confidence
-  }
 
   private calculateAvgLatency(results: PlaygroundEvaluationResult[]): number {
     const latencies = results.filter(r => r.latency).map(r => r.latency!);
@@ -302,8 +406,22 @@ class PlaygroundService {
     this.evaluationCache.clear();
   }
 
-  clearHistory() {
-    this.versionHistory = [];
+  async clearHistory() {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      
+      if (session?.session?.user) {
+        await supabase
+          .from('prompt_versions')
+          .delete()
+          .eq('user_id', session.session.user.id);
+      }
+    } catch (error) {
+      console.error('Error clearing history from Supabase:', error);
+    }
+    
+    // Clear localStorage as well
+    localStorage.removeItem('playground_versions');
   }
 }
 
