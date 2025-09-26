@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { 
   ArrowLeft,
   PlayCircle,
-  Save,
   FileJson,
   Gavel,
   CheckCircle,
@@ -34,10 +33,10 @@ export function QueueDetail() {
   const [assignments, setAssignments] = useState<JudgeAssignment[]>([]);
   const [runs, setRuns] = useState<EvaluationRun[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
   const [runProgress, setRunProgress] = useState(0);
   const [selectedJudges, setSelectedJudges] = useState<Record<string, Set<string>>>({});
+  const [savingQuestion, setSavingQuestion] = useState<string | null>(null);
 
   useEffect(() => {
     if (queueId) {
@@ -109,57 +108,66 @@ export function QueueDetail() {
     return questions;
   };
 
-  const handleJudgeToggle = (questionId: string, judgeId: string, checked: boolean) => {
+  const handleJudgeToggle = async (questionId: string, judgeId: string, checked: boolean) => {
     console.log(`🔲 Toggle judge: question=${questionId}, judge=${judgeId}, checked=${checked}`);
+    
+    // Calculate the updated judge IDs based on current state
+    const currentJudges = selectedJudges[questionId] || new Set<string>();
+    const updatedJudgeIds = new Set(currentJudges);
+    
+    if (checked) {
+      updatedJudgeIds.add(judgeId);
+      console.log(`➕ Adding judge ${judgeId} to question ${questionId}`);
+    } else {
+      updatedJudgeIds.delete(judgeId);
+      console.log(`➖ Removing judge ${judgeId} from question ${questionId}`);
+    }
+    
+    console.log(`📝 New selections for question ${questionId}:`, Array.from(updatedJudgeIds));
+    
+    // Update UI immediately
     setSelectedJudges(prev => {
       const newSelections = { ...prev };
-      if (!newSelections[questionId]) {
-        newSelections[questionId] = new Set();
-      }
-      
-      if (checked) {
-        newSelections[questionId].add(judgeId);
-        console.log(`➕ Added judge ${judgeId} to question ${questionId}`);
-      } else {
-        newSelections[questionId].delete(judgeId);
-        console.log(`➖ Removed judge ${judgeId} from question ${questionId}`);
-      }
-      
-      console.log(`📝 New selections for question ${questionId}:`, Array.from(newSelections[questionId] || []));
+      newSelections[questionId] = updatedJudgeIds;
       return newSelections;
     });
-  };
-
-  const handleSaveAssignments = async () => {
+    
+    // Auto-save in the background
     if (!queueId) return;
     
-    setSaving(true);
-    console.log('Saving judge assignments for queue:', queueId);
-    console.log('Selected judges:', selectedJudges);
-    
+    setSavingQuestion(questionId);
     try {
-      // Get all questions to handle unassignments
-      const questions = getAllQuestions();
+      console.log(`Auto-saving ${updatedJudgeIds.size} judges for question ${questionId}`);
+      await dataService.assignJudges(queueId, questionId, Array.from(updatedJudgeIds));
       
-      for (const question of questions) {
-        const judgeIds = selectedJudges[question.id] || new Set();
-        console.log(`Assigning ${judgeIds.size} judges to question ${question.id}:`, Array.from(judgeIds));
-        await dataService.assignJudges(queueId, question.id, Array.from(judgeIds));
-      }
+      // Update assignments state
+      const newAssignments = await dataService.getJudgeAssignments(queueId);
+      setAssignments(newAssignments);
       
-      await loadData();
-      console.log('Judge assignments saved successfully');
-      setSaving(false);
-      toast({
-        title: "Assignments Saved",
-        description: "Judge assignments have been saved successfully.",
-      });
+      setSavingQuestion(null);
     } catch (error) {
-      console.error('Failed to save judge assignments:', error);
-      setSaving(false);
+      console.error('Failed to auto-save judge assignment:', error);
+      setSavingQuestion(null);
+      
+      // Revert the change on error
+      setSelectedJudges(prev => {
+        const newSelections = { ...prev };
+        if (!newSelections[questionId]) {
+          newSelections[questionId] = new Set();
+        }
+        
+        if (checked) {
+          newSelections[questionId].delete(judgeId);
+        } else {
+          newSelections[questionId].add(judgeId);
+        }
+        
+        return newSelections;
+      });
+      
       toast({
         title: "Error",
-        description: "Failed to save judge assignments. Please try again.",
+        description: "Failed to save assignment. Please try again.",
         variant: "destructive",
       });
     }
@@ -251,41 +259,23 @@ export function QueueDetail() {
             )}
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            onClick={handleSaveAssignments}
-            disabled={saving || running}
-          >
-            {saving ? (
-              <>
-                <Clock className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Save Assignments
-              </>
-            )}
-          </Button>
-          <Button
-            onClick={handleRunEvaluations}
-            disabled={running || totalAssignments === 0}
-          >
-            {running ? (
-              <>
-                <Clock className="mr-2 h-4 w-4 animate-spin" />
-                Running...
-              </>
-            ) : (
-              <>
-                <PlayCircle className="mr-2 h-4 w-4" />
-                Run Evaluations
-              </>
-            )}
-          </Button>
-        </div>
+        <Button
+          onClick={handleRunEvaluations}
+          disabled={running || totalAssignments === 0}
+          size="lg"
+        >
+          {running ? (
+            <>
+              <Clock className="mr-2 h-4 w-4 animate-spin" />
+              Running...
+            </>
+          ) : (
+            <>
+              <PlayCircle className="mr-2 h-4 w-4" />
+              Run Evaluations
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Stats */}
@@ -373,39 +363,92 @@ export function QueueDetail() {
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle>Assign Judges to Questions</CardTitle>
-                <CardDescription>
-                  Select which judges should evaluate each question in this queue
-                </CardDescription>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle>Assign Judges to Questions</CardTitle>
+                    <CardDescription>
+                      Select which judges should evaluate each question in this queue
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    <CheckCircle className="mr-1 h-3 w-3" />
+                    Auto-save enabled
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-6">
-                  {questions.map((question) => (
-                    <div key={question.id} className="space-y-3">
-                      <div className="space-y-1">
-                        <h4 className="font-medium">{question.text}</h4>
-                        <Badge variant="outline" className="text-xs">
-                          {question.type.replace(/_/g, ' ')}
-                        </Badge>
-                      </div>
-                      <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-                        {judges.map((judge) => (
-                          <div key={judge.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`${question.id}-${judge.id}`}
-                              checked={selectedJudges[question.id]?.has(judge.id) || false}
-                              onCheckedChange={(checked) => 
-                                handleJudgeToggle(question.id, judge.id, checked as boolean)
-                              }
-                            />
-                            <label
-                              htmlFor={`${question.id}-${judge.id}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              {judge.name}
-                            </label>
+                <div className="space-y-8">
+                  {questions.map((question, index) => (
+                    <div key={question.id} className="relative">
+                      {index > 0 && (
+                        <div className="absolute -top-4 left-0 right-0 h-px bg-border" />
+                      )}
+                      
+                      <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <h4 className="text-base font-semibold text-foreground mb-2">
+                              {question.text}
+                            </h4>
+                            <Badge variant="secondary" className="text-xs font-normal">
+                              {question.type.replace(/_/g, ' ')}
+                            </Badge>
                           </div>
-                        ))}
+                          <div className="ml-4 flex items-center space-x-2">
+                            {savingQuestion === question.id ? (
+                              <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                                <Clock className="h-3 w-3 animate-spin" />
+                                <span>Saving...</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                                {selectedJudges[question.id]?.size > 0 && (
+                                  <CheckCircle className="h-3 w-3 text-green-600" />
+                                )}
+                                <span>{selectedJudges[question.id]?.size || 0} selected</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {judges.map((judge) => {
+                            const isChecked = selectedJudges[question.id]?.has(judge.id) || false;
+                            return (
+                              <label
+                                key={judge.id}
+                                htmlFor={`${question.id}-${judge.id}`}
+                                className={`
+                                  relative flex items-center space-x-3 p-3 rounded-md border transition-all cursor-pointer
+                                  ${isChecked 
+                                    ? 'bg-primary/5 border-primary/40 shadow-sm' 
+                                    : 'bg-background border-border hover:bg-muted/50 hover:border-border/80'
+                                  }
+                                `}
+                              >
+                                <Checkbox
+                                  id={`${question.id}-${judge.id}`}
+                                  checked={isChecked}
+                                  className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                  onCheckedChange={(checked) => 
+                                    handleJudgeToggle(question.id, judge.id, checked as boolean)
+                                  }
+                                />
+                                <span
+                                  className={`
+                                    text-sm font-medium select-none flex-1
+                                    ${isChecked ? 'text-foreground' : 'text-foreground/80'}
+                                  `}
+                                >
+                                  {judge.name}
+                                </span>
+                                {isChecked && (
+                                  <CheckCircle className="h-4 w-4 text-primary" />
+                                )}
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   ))}
