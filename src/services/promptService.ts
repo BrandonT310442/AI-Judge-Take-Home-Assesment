@@ -1,6 +1,3 @@
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
-
 export class PromptService {
   private promptCache: Map<string, string> = new Map();
 

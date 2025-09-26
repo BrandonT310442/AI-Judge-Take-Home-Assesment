@@ -139,7 +139,7 @@ export function Judges() {
               New Judge
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
                 {editingJudge ? 'Edit Judge' : 'Create New Judge'}
@@ -203,7 +203,7 @@ export function Judges() {
                 {editingJudge ? 'Save Changes' : 'Create Judge'}
               </Button>
             </DialogFooter>
-          </DialogContent>
+            </DialogContent>
         </Dialog>
       </div>
 

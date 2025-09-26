@@ -8,13 +8,15 @@ import {
   Settings,
   Gavel,
   PlayCircle,
-  ClipboardList
+  ClipboardList,
+  FlaskConical
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Submissions', href: '/submissions', icon: FileJson },
   { name: 'Judges', href: '/judges', icon: Gavel },
+  { name: 'Playground', href: '/playground', icon: FlaskConical },
   { name: 'Queues', href: '/queues', icon: ClipboardList },
   { name: 'Results', href: '/results', icon: ChartBar },
 ];

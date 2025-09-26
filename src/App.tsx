@@ -6,6 +6,7 @@ import { Queues } from '@/pages/Queues';
 import { QueueDetail } from '@/pages/QueueDetail';
 import { Results } from '@/pages/Results';
 import { Submissions } from '@/pages/Submissions';
+import { PromptPlayground } from '@/pages/PromptPlayground';
 import { Toaster } from '@/components/ui/toaster';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="judges" element={<Judges />} />
+            <Route path="playground" element={<PromptPlayground />} />
             <Route path="queues" element={<Queues />} />
             <Route path="queue/:queueId" element={<QueueDetail />} />
             <Route path="results" element={<Results />} />
