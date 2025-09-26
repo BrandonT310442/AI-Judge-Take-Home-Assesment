@@ -121,79 +121,88 @@ export function ResultsPanel({
   }
 
   return (
-    <div className="h-full flex flex-col space-y-4">
-      {/* Statistics Summary */}
-      <div className="grid grid-cols-2 gap-2">
+    <div className="h-full relative">
+      {/* Fixed Header Section */}
+      <div className="space-y-3 pb-3">
+        {/* Statistics Summary */}
+        <div className="grid grid-cols-2 gap-2">
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Accuracy</span>
+                {stats.accuracyRate >= 70 ? (
+                  <TrendingUp className="h-4 w-4 text-green-500" />
+                ) : (
+                  <TrendingDown className="h-4 w-4 text-red-500" />
+                )}
+              </div>
+              <p className="text-lg font-bold">{stats.accuracyRate.toFixed(0)}%</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Avg Latency</span>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <p className="text-lg font-bold">{stats.avgLatency.toFixed(0)}ms</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Tokens Used</span>
+                <Hash className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <p className="text-lg font-bold">{stats.totalTokens.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Confidence</span>
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <p className="text-lg font-bold">{(stats.avgConfidence * 100).toFixed(0)}%</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Verdict Distribution */}
         <Card>
           <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Accuracy</span>
-              {stats.accuracyRate >= 70 ? (
-                <TrendingUp className="h-4 w-4 text-green-500" />
-              ) : (
-                <TrendingDown className="h-4 w-4 text-red-500" />
+            <div className="flex items-center justify-between space-x-2">
+              <Badge variant="default">
+                Pass: {stats.verdictCounts.pass}
+              </Badge>
+              <Badge variant="destructive">
+                Fail: {stats.verdictCounts.fail}
+              </Badge>
+              <Badge variant="secondary">
+                Inconclusive: {stats.verdictCounts.inconclusive}
+              </Badge>
+              {stats.failed > 0 && (
+                <Badge variant="outline" className="border-red-500">
+                  Errors: {stats.failed}
+              </Badge>
               )}
             </div>
-            <p className="text-lg font-bold">{stats.accuracyRate.toFixed(0)}%</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Avg Latency</span>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <p className="text-lg font-bold">{stats.avgLatency.toFixed(0)}ms</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Tokens Used</span>
-              <Hash className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <p className="text-lg font-bold">{stats.totalTokens.toLocaleString()}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Confidence</span>
-              <AlertCircle className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <p className="text-lg font-bold">{(stats.avgConfidence * 100).toFixed(0)}%</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Verdict Distribution */}
-      <Card>
-        <CardContent className="p-3">
-          <div className="flex items-center justify-between space-x-2">
-            <Badge variant="default">
-              Pass: {stats.verdictCounts.pass}
-            </Badge>
-            <Badge variant="destructive">
-              Fail: {stats.verdictCounts.fail}
-            </Badge>
-            <Badge variant="secondary">
-              Inconclusive: {stats.verdictCounts.inconclusive}
-            </Badge>
-            {stats.failed > 0 && (
-              <Badge variant="outline" className="border-red-500">
-                Errors: {stats.failed}
-              </Badge>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Individual Results */}
-      <ScrollArea className="flex-1">
-        <div className="space-y-3 pr-4">
+      {/* Scrollable Results Section - With explicit height */}
+      <div 
+        className="overflow-y-auto" 
+        style={{ 
+          height: 'calc(100% - 280px)',
+          maxHeight: 'calc(100% - 280px)' 
+        }}
+      >
+        <div className="space-y-3 pr-2 pb-2">
           {results.map((result, index) => {
             const sample = samples.find(s => s.id === result.sampleId);
             if (!sample) return null;
@@ -264,7 +273,7 @@ export function ResultsPanel({
             );
           })}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

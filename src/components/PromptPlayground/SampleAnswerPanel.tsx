@@ -121,14 +121,14 @@ export function SampleAnswerPanel({
 
   return (
     <div className="h-full flex flex-col">
-      <Tabs defaultValue="samples" className="flex-1 flex flex-col">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="samples">Test Samples</TabsTrigger>
-          <TabsTrigger value="custom">Add Custom</TabsTrigger>
+      <Tabs defaultValue="samples" className="h-full flex flex-col">
+        <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
+          <TabsTrigger value="samples">Select Samples</TabsTrigger>
+          <TabsTrigger value="custom">Create New</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="samples" className="flex-1 overflow-hidden">
-          <div className="space-y-2 h-full flex flex-col">
+        <TabsContent value="samples" className="flex-1 overflow-hidden mt-4 min-h-0">
+          <div className="h-full flex flex-col space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -147,90 +147,90 @@ export function SampleAnswerPanel({
               )}
             </div>
             
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-2 pr-4">
                 {samples.map((sample) => (
-                  <Card 
-                    key={sample.id} 
-                    className={`cursor-pointer transition-colors ${
-                      selectedSamples.includes(sample.id) 
-                        ? 'bg-primary/5 border-primary/40' 
-                        : 'hover:bg-muted/50'
+                  <div
+                    key={sample.id}
+                    className={`group relative border rounded-lg p-3 cursor-pointer transition-all ${
+                      selectedSamples.includes(sample.id)
+                        ? 'bg-primary/5 border-primary/30 shadow-sm'
+                        : 'bg-background border-border hover:bg-muted/50 hover:border-muted-foreground/30'
                     }`}
+                    onClick={() => handleToggleSample(sample.id)}
                   >
-                    <CardContent className="p-3">
-                      <div className="flex items-start space-x-2">
-                        <Checkbox
-                          checked={selectedSamples.includes(sample.id)}
-                          onCheckedChange={() => handleToggleSample(sample.id)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <div className="flex-1 space-y-1" onClick={() => handleToggleSample(sample.id)}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                              <span className="font-medium text-sm">{sample.name}</span>
-                              {sample.expectedVerdict && getVerdictIcon(sample.expectedVerdict)}
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDuplicateSample(sample);
-                                }}
-                              >
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteSample(sample.id);
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        checked={selectedSamples.includes(sample.id)}
+                        onCheckedChange={() => handleToggleSample(sample.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-1 h-4 w-4"
+                      />
+                      
+                      <div className="flex-1 min-w-0 space-y-1">
+                        {/* Title row */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="font-semibold text-sm">
+                              {sample.name}
+                            </span>
+                            {sample.expectedVerdict && getVerdictIcon(sample.expectedVerdict)}
                           </div>
-                          <p className="text-xs text-muted-foreground truncate">
-                            Q: {sample.question}
+                          
+                          {/* Action buttons - only show on hover */}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSample(sample.id);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        
+                        {/* Question and Answer */}
+                        <div className="text-xs text-muted-foreground space-y-1 mt-2">
+                          <p className="line-clamp-2">
+                            <span className="font-semibold text-foreground">Q:</span> {sample.question}
                           </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            A: {sample.answer.text || sample.answer.reasoning || sample.answer.choice || '(empty)'}
+                          <p className="line-clamp-2">
+                            <span className="font-semibold text-foreground">A:</span> {sample.answer.text || sample.answer.reasoning || sample.answer.choice || '-'}
                           </p>
-                          <div className="flex items-center space-x-2">
-                            <Badge variant="outline" className="text-xs">
-                              {sample.questionType.replace(/_/g, ' ')}
+                        </div>
+                        
+                        {/* Badges row */}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="outline" className="text-xs">
+                            {sample.questionType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </Badge>
+                          {sample.expectedVerdict && (
+                            <Badge
+                              variant={
+                                sample.expectedVerdict === 'pass' ? 'default' :
+                                sample.expectedVerdict === 'fail' ? 'destructive' :
+                                'secondary'
+                              }
+                              className="text-xs"
+                            >
+                              {sample.expectedVerdict}
                             </Badge>
-                            {sample.expectedVerdict && (
-                              <Badge 
-                                variant={
-                                  sample.expectedVerdict === 'pass' ? 'default' :
-                                  sample.expectedVerdict === 'fail' ? 'destructive' :
-                                  'secondary'
-                                }
-                                className="text-xs"
-                              >
-                                Expected: {sample.expectedVerdict}
-                              </Badge>
-                            )}
-                          </div>
+                          )}
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 ))}
               </div>
             </ScrollArea>
           </div>
         </TabsContent>
 
-        <TabsContent value="custom" className="space-y-4 overflow-auto">
-          <div className="space-y-4">
+        <TabsContent value="custom" className="flex-1 overflow-hidden mt-4 min-h-0">
+          <ScrollArea className="h-full">
+            <div className="space-y-4 pr-4 pb-4">
             <div className="space-y-2">
               <Label htmlFor="name">Sample Name</Label>
               <Input
@@ -337,7 +337,8 @@ export function SampleAnswerPanel({
               <Plus className="mr-2 h-4 w-4" />
               Add Sample
             </Button>
-          </div>
+            </div>
+          </ScrollArea>
         </TabsContent>
       </Tabs>
     </div>

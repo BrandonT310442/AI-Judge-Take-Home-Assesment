@@ -2,51 +2,34 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { History, FlaskConical, ArrowLeft, Save, Upload } from 'lucide-react';
+import { History, FlaskConical, ArrowLeft, Save, Upload, Hash, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
 
 // Import components
-import { PromptEditor } from '@/components/PromptPlayground/PromptEditor';
 import { SampleAnswerPanel } from '@/components/PromptPlayground/SampleAnswerPanel';
 import { ResultsPanel } from '@/components/PromptPlayground/ResultsPanel';
-import { TokenCounter } from '@/components/PromptPlayground/TokenCounter';
 import { PlaygroundControls } from '@/components/PromptPlayground/PlaygroundControls';
 import { PromptComparison } from '@/components/PromptPlayground/PromptComparison';
 
 // Import services
 import playgroundService, { DEFAULT_SAMPLES, type SampleAnswer, type PlaygroundEvaluationResult, type PromptVersion } from '@/services/playgroundService';
 import { dataService } from '@/services/dataService';
+import tokenizerService from '@/services/tokenizer';
 
-const DEFAULT_PROMPT = `# AI Judge Evaluation
-
-## Judge Instructions
-You are an expert evaluator assessing the quality and correctness of answers. 
+const DEFAULT_PROMPT = `You are an expert evaluator assessing the quality and correctness of answers. 
 Be fair but strict in your evaluation. Consider:
 - Factual accuracy
 - Completeness of the answer
 - Quality of reasoning
 - Clarity of expression
 
-## Question
-{{question}}
-
-## User's Answer
-{{answer}}
-
-## Task
-Evaluate the answer and provide:
-1. A verdict: "pass", "fail", or "inconclusive"
-2. Brief reasoning explaining your verdict
-
-Return your evaluation as JSON:
-{
-  "verdict": "pass" | "fail" | "inconclusive",
-  "reasoning": "Your explanation here"
-}`;
+Focus on whether the answer demonstrates understanding of the subject matter and provides accurate information.`;
 
 export function PromptPlayground() {
   const navigate = useNavigate();
@@ -66,6 +49,7 @@ export function PromptPlayground() {
   const [temperature, setTemperature] = useState(0.3);
   const [maxTokens, setMaxTokens] = useState(500);
   const [tokenCount, setTokenCount] = useState(0);
+  const [cost, setCost] = useState(0);
 
   // UI state
   const [showHistory, setShowHistory] = useState(false);
@@ -73,12 +57,21 @@ export function PromptPlayground() {
   const [compareVersions, setCompareVersions] = useState<[string?, string?]>([]);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportName, setExportName] = useState('');
+  const [showSamples, setShowSamples] = useState(false);
 
   // Load version history on mount
   useEffect(() => {
     const history = playgroundService.getVersionHistory();
     setVersions(history);
   }, []);
+
+  // Update token count when prompt or model changes
+  useEffect(() => {
+    const tokens = tokenizerService.countTokens(prompt, model);
+    setTokenCount(tokens);
+    const estimatedCost = tokenizerService.estimateCost(tokens, null, model);
+    setCost(estimatedCost);
+  }, [prompt, model]);
 
   // Handle run evaluation
   const handleRun = useCallback(async () => {
@@ -223,34 +216,22 @@ export function PromptPlayground() {
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
-      <div className="border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/judges')}
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
-              </Button>
-              <div className="flex items-center space-x-2">
-                <FlaskConical className="h-6 w-6 text-primary" />
-                <h1 className="text-2xl font-bold">Prompt Playground</h1>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Test and refine judge prompts in real-time
-              </p>
-            </div>
-            <TokenCounter text={prompt} model={model} className="hidden lg:block" />
+      <div className="border-b bg-background">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center space-x-3">
+            <FlaskConical className="h-5 w-5 text-primary" />
+            <h1 className="text-xl font-semibold">Prompt Playground</h1>
+            <span className="text-sm text-muted-foreground">•</span>
+            <p className="text-sm text-muted-foreground">
+              Test and refine judge prompts in real-time
+            </p>
           </div>
         </div>
       </div>
 
       {/* Controls Bar */}
-      <div className="border-b bg-muted/30">
-        <div className="container mx-auto px-4 py-3">
+      <div className="border-b bg-muted/20">
+        <div className="container mx-auto px-6 py-3">
           <PlaygroundControls
             model={model}
             temperature={temperature}
@@ -271,84 +252,110 @@ export function PromptPlayground() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        <div className="container mx-auto px-4 py-4 h-full">
-          <div className="grid grid-cols-12 gap-4 h-full">
-            {/* Prompt Editor */}
-            <div className="col-span-12 lg:col-span-5 h-full">
-              <Card className="h-full flex flex-col">
-                <CardHeader>
-                  <CardTitle>Prompt Editor</CardTitle>
+      <div className="flex-1 overflow-hidden bg-muted/5">
+        <div className="container mx-auto px-6 py-6 h-full">
+          <div className="grid grid-cols-2 gap-6 h-full overflow-hidden">
+            {/* Left Panel - Prompt Editor */}
+            <Card className="h-full flex flex-col shadow-sm">
+              <CardHeader>
+                <div className="space-y-1">
+                  <CardTitle>System Prompt</CardTitle>
                   <CardDescription>
-                    Write your evaluation prompt. Use {'{{question}}'} and {'{{answer}}'} as placeholders.
+                    Define how the AI judge should evaluate answers
                   </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 overflow-hidden p-0">
-                  <div className="h-full min-h-[500px] p-4">
-                    <PromptEditor
-                      value={prompt}
-                      onChange={setPrompt}
-                      onTokensChange={setTokenCount}
-                      model={model}
-                      height="450px"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Sample Answers */}
-            <div className="col-span-12 lg:col-span-3 h-full">
-              <Card className="h-full flex flex-col">
-                <CardHeader>
-                  <CardTitle>Test Samples</CardTitle>
-                  <CardDescription>
-                    Select samples to test your prompt against
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 overflow-hidden">
-                  <SampleAnswerPanel
-                    samples={samples}
-                    selectedSamples={selectedSamples}
-                    onSamplesChange={setSamples}
-                    onSelectionChange={setSelectedSamples}
-                  />
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Results */}
-            <div className="col-span-12 lg:col-span-4 h-full">
-              <Card className="h-full flex flex-col">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Results</CardTitle>
-                      <CardDescription>
-                        Evaluation results for your test samples
-                      </CardDescription>
-                    </div>
-                    {results.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setResults([])}
-                      >
-                        Clear
+                </div>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col gap-4 pb-6">
+                <div className="flex items-center justify-between">
+                  <Dialog open={showSamples} onOpenChange={setShowSamples}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <FlaskConical className="mr-2 h-4 w-4" />
+                        Select Test Samples ({selectedSamples.length})
                       </Button>
-                    )}
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl h-[80vh] overflow-hidden flex flex-col">
+                      <DialogHeader className="flex-shrink-0">
+                        <DialogTitle>Manage Test Samples</DialogTitle>
+                        <DialogDescription>
+                          Select or create sample questions and answers to test your prompt
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="flex-1 min-h-0 mt-2">
+                        <SampleAnswerPanel
+                          samples={samples}
+                          selectedSamples={selectedSamples}
+                          onSamplesChange={setSamples}
+                          onSelectionChange={setSelectedSamples}
+                        />
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  
+                  <div className="flex items-center gap-3 text-sm">
+                    <Badge variant="outline">
+                      <Hash className="mr-1 h-3 w-3" />
+                      {tokenCount} tokens
+                    </Badge>
+                    <Badge variant="outline">
+                      <DollarSign className="mr-1 h-3 w-3" />
+                      {tokenizerService.formatCost(cost)}
+                    </Badge>
                   </div>
-                </CardHeader>
-                <CardContent className="flex-1 overflow-hidden">
-                  <ResultsPanel
-                    results={results}
-                    samples={samples}
-                    isLoading={isRunning}
-                    progress={progress.total > 0 ? progress : undefined}
+                </div>
+
+                <div className="flex-1 relative">
+                  <Textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Example:
+
+You are an expert evaluator assessing answer quality. Be strict but fair.
+
+Evaluation criteria:
+• Factual accuracy - Is the information correct?
+• Completeness - Does it fully address the question?
+• Reasoning quality - Is the logic sound?
+• Clarity - Is it well-expressed?
+
+Provide clear justification for your verdict."
+                    className="w-full h-full min-h-[400px] resize-none font-mono text-sm p-4 focus:ring-2 focus:ring-primary focus:border-transparent"
+                    spellCheck={false}
                   />
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Right Panel - Results */}
+            <Card className="h-full flex flex-col shadow-sm overflow-hidden">
+              <CardHeader className="flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Evaluation Results</CardTitle>
+                    <CardDescription>
+                      Test results will appear here
+                    </CardDescription>
+                  </div>
+                  {results.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setResults([])}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-hidden p-4 min-h-0">
+                <ResultsPanel
+                  results={results}
+                  samples={samples}
+                  isLoading={isRunning}
+                  progress={progress.total > 0 ? progress : undefined}
+                />
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
