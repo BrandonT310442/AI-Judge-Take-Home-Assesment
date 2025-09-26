@@ -1,5 +1,6 @@
 import Groq from 'groq-sdk';
 import type { Judge, Question, Answer } from '@/types';
+import { promptService } from '../promptService';
 
 interface EvaluationResult {
   verdict: 'pass' | 'fail' | 'inconclusive';
@@ -31,17 +32,26 @@ export class GroqService {
     }
 
     try {
-      const prompt = this.buildPrompt(params);
+      // Load the evaluation template
+      const template = await promptService.loadPromptTemplate('evaluation-base.md');
       
+      // Format the answer for the template
+      const answerText = this.formatAnswer(params.answer);
+      
+      // Process the template with actual values
+      const processedPrompt = promptService.processTemplate(template, {
+        systemPrompt: params.systemPrompt,
+        question: params.question.data.questionText,
+        answer: answerText
+      });
+      
+      // Extract the system prompt and user prompt from the processed template
+      // The template includes the system prompt in the content, so we'll use it all as user message
       const completion = await this.client.chat.completions.create({
         messages: [
           {
-            role: "system",
-            content: params.systemPrompt
-          },
-          {
             role: "user",
-            content: prompt
+            content: processedPrompt
           }
         ],
         model: params.modelName || "openai/gpt-oss-120b",
@@ -73,13 +83,7 @@ export class GroqService {
     }
   }
 
-  private buildPrompt(params: {
-    question: Question;
-    answer: Answer;
-  }): string {
-    const { question, answer } = params;
-    
-    // Format the answer based on available fields
+  private formatAnswer(answer: Answer): string {
     let answerText = '';
     if (answer.choice) {
       answerText += `Choice: ${answer.choice}\n`;
@@ -93,24 +97,9 @@ export class GroqService {
     if (answer.choices && Array.isArray(answer.choices)) {
       answerText += `Choices: ${answer.choices.join(', ')}\n`;
     }
-
-    return `## Question
-${question.data.questionText}
-
-## User's Answer
-${answerText.trim()}
-
-## Task
-Evaluate this answer and provide:
-1. A verdict: "pass", "fail", or "inconclusive"
-2. Brief reasoning (1-2 sentences) explaining your verdict
-
-Respond ONLY with valid JSON in this exact format:
-{
-  "verdict": "pass",
-  "reasoning": "Your explanation here"
-}`;
+    return answerText.trim();
   }
+
 
   private isValidEvaluationResult(result: any): result is EvaluationResult {
     return (
