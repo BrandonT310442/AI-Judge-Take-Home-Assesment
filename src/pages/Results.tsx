@@ -41,6 +41,9 @@ import {
 } from 'lucide-react';
 import { dataService } from '@/services/dataService';
 import type { Evaluation, Judge, Submission, Question, Statistics } from '@/types';
+import { PassRateTrend } from '@/components/charts/PassRateTrend';
+import { VerdictDistribution } from '@/components/charts/VerdictDistribution';
+import { chartUtils } from '@/utils/chartUtils';
 
 interface EvaluationDisplay extends Evaluation {
   submissionData?: Submission;
@@ -66,6 +69,9 @@ export function Results() {
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [evaluationToDelete, setEvaluationToDelete] = useState<string | null>(null);
+  
+  // Chart states
+  const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d' | 'all'>('7d');
 
   useEffect(() => {
     loadData();
@@ -231,6 +237,23 @@ export function Results() {
   const handleViewDetails = (evaluation: EvaluationDisplay) => {
     setSelectedEvaluation(evaluation);
     setDetailsModalOpen(true);
+  };
+
+  // Chart data preparation
+  const getTrendData = () => {
+    return chartUtils.groupByDate(displayEvaluations, timeRange);
+  };
+
+  const getVerdictData = () => {
+    return chartUtils.verdictCounts(displayEvaluations);
+  };
+
+  const handleTimeRangeChange = (range: '24h' | '7d' | '30d' | 'all') => {
+    setTimeRange(range);
+  };
+
+  const handleVerdictChartClick = (verdict: string) => {
+    setSelectedVerdicts(new Set([verdict]));
   };
 
   const stats = getStatistics();
@@ -420,6 +443,25 @@ export function Results() {
             <div className="text-2xl font-bold text-yellow-600">{stats.inconclusiveCount}</div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid gap-4 mt-8">
+        {/* Trend chart and verdict distribution side by side */}
+        <div className="grid md:grid-cols-3 gap-4">
+          <div className="md:col-span-2">
+            <PassRateTrend 
+              data={getTrendData()} 
+              onTimeRangeChange={handleTimeRangeChange}
+            />
+          </div>
+          <div className="md:col-span-1">
+            <VerdictDistribution 
+              data={getVerdictData()}
+              onSegmentClick={handleVerdictChartClick}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Results Table */}

@@ -18,7 +18,8 @@ import {
   Gavel,
   Bot,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Power
 } from 'lucide-react';
 import { dataService } from '@/services/dataService';
 import type { Judge } from '@/types';
@@ -289,7 +290,7 @@ export function Judges() {
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleToggleActive(judge)}>
-                        <Switch className="mr-2 h-4 w-4" />
+                        <Power className="mr-2 h-4 w-4" />
                         {judge.isActive ? 'Deactivate' : 'Activate'}
                       </DropdownMenuItem>
                       <DropdownMenuItem 

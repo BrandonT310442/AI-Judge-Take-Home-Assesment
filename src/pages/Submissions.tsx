@@ -165,10 +165,6 @@ export function Submissions() {
                         <ClipboardList className="h-4 w-4 mr-1" />
                         {getQueueName(submission.queueId)}
                       </div>
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 mr-1" />
-                        {new Date(submission.createdAt).toLocaleString()}
-                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
