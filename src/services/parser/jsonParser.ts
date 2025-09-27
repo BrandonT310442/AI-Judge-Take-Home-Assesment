@@ -35,18 +35,25 @@ export class JSONParser {
 
     const validatedData = validation.data!;
     
-    // Extract unique queues
-    const queues = this.extractQueues(validatedData);
+    // Generate a single timestamp to use for both queues and submissions
+    const timestamp = Date.now();
+    console.log(`Using timestamp ${timestamp} for both queues and submissions`);
     
-    // Convert validated data to our Submission type
-    const submissions = this.convertToSubmissions(validatedData);
+    // Extract unique queues with the timestamp
+    const queues = this.extractQueues(validatedData, timestamp);
+    
+    // Convert validated data to our Submission type with the same timestamp
+    const submissions = this.convertToSubmissions(validatedData, timestamp);
+    
+    // Verify IDs match
+    console.log('Generated queue IDs:', queues.map(q => q.id));
+    console.log('Generated submission queue IDs:', [...new Set(submissions.map(s => s.queueId))]);
     
     return { queues, submissions };
   }
 
-  private static extractQueues(submissions: ValidatedSubmission[]): Queue[] {
+  private static extractQueues(submissions: ValidatedSubmission[], timestamp: number): Queue[] {
     const queueMap = new Map<string, Queue>();
-    const timestamp = Date.now();
     
     submissions.forEach(submission => {
       // Create unique queue ID with timestamp
@@ -69,13 +76,11 @@ export class JSONParser {
     return Array.from(queueMap.values());
   }
 
-  private static convertToSubmissions(validatedData: ValidatedSubmission[]): Submission[] {
-    const timestamp = Date.now();
-    
+  private static convertToSubmissions(validatedData: ValidatedSubmission[], timestamp: number): Submission[] {
     return validatedData.map(item => ({
       // Create unique submission ID with timestamp
       id: `${item.id}_${timestamp}`,
-      // Update queue ID to match the new unique queue ID
+      // Update queue ID to match the new unique queue ID - MUST USE SAME TIMESTAMP
       queueId: `${item.queueId}_${timestamp}`,
       labelingTaskId: item.labelingTaskId,
       createdAt: item.createdAt,

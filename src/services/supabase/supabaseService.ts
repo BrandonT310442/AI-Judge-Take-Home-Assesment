@@ -16,6 +16,34 @@ export class SupabaseService {
     this.useSupabase = isSupabaseConfigured();
     if (!this.useSupabase) {
       console.warn('Supabase not configured. Using in-memory storage.');
+    } else {
+      console.log('Supabase configured, using database');
+      // Test database connection and permissions on initialization
+      this.testDatabaseAccess();
+    }
+  }
+
+  private async testDatabaseAccess() {
+    try {
+      // Test read access to queues table
+      const { error: readError } = await supabase
+        .from('queues')
+        .select('id')
+        .limit(1);
+      
+      if (readError) {
+        if (readError.message?.includes('relation') && readError.message?.includes('does not exist')) {
+          console.error('ERROR: Queues table does not exist! Please run the database migrations.');
+        } else if (readError.code === '42501') {
+          console.warn('Warning: Permission denied on queues table. Check RLS policies.');
+        } else {
+          console.warn('Warning: Cannot read from queues table:', readError.message);
+        }
+      } else {
+        console.log('✓ Database connection and read access confirmed');
+      }
+    } catch (err) {
+      console.warn('Could not test database access:', err);
     }
   }
 
@@ -43,18 +71,26 @@ export class SupabaseService {
       return queues.find(q => q.id === id) || null;
     }
 
-    const { data, error } = await supabase
-      .from('queues')
-      .select('*')
-      .eq('id', id)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('queues')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
 
-    if (error) {
-      console.error('Error fetching queue:', error);
+      if (error) {
+        // Only log actual errors, not "no rows found"
+        if (error.code !== 'PGRST116') {
+          console.error(`Error fetching queue ${id}:`, error);
+        }
+        return null;
+      }
+
+      return data ? this.mapDbQueueToQueue(data) : null;
+    } catch (err) {
+      console.error(`Unexpected error fetching queue ${id}:`, err);
       return null;
     }
-
-    return data ? this.mapDbQueueToQueue(data) : null;
   }
 
   async deleteQueue(id: string): Promise<void> {
@@ -97,15 +133,139 @@ export class SupabaseService {
       submission_count: queue.submissionCount
     }));
 
-    // Use upsert to handle both new and existing queues
-    const { error } = await supabase
+    // Process all queues at once using batch upsert
+    
+    // First attempt: Try to upsert all queues at once
+    const { data: upsertData, error: upsertError } = await supabase
       .from('queues')
-      .upsert(dbQueues, { onConflict: 'id' });
+      .upsert(dbQueues, { 
+        onConflict: 'id',
+        ignoreDuplicates: false 
+      })
+      .select('id');
 
-    if (error) {
-      console.error('Error inserting queues:', error);
-      throw error;
+    if (upsertError) {
+      console.error('Batch upsert failed:', upsertError);
+      
+      // Fallback: Process queues one by one
+      console.log('Falling back to individual queue processing...');
+      const failedQueues: string[] = [];
+
+      for (const dbQueue of dbQueues) {
+        // First check if queue already exists
+        const { data: existingQueue, error: checkError } = await supabase
+          .from('queues')
+          .select('id')
+          .eq('id', dbQueue.id)
+          .maybeSingle();
+
+        if (checkError) {
+          console.error(`Error checking queue ${dbQueue.id}:`, checkError);
+          failedQueues.push(dbQueue.id);
+          continue;
+        }
+
+        if (existingQueue) {
+          // Queue exists, update it
+          console.log(`Queue ${dbQueue.id} exists, updating...`);
+          const { error: updateError } = await supabase
+            .from('queues')
+            .update({
+              name: dbQueue.name,
+              description: dbQueue.description,
+              submission_count: dbQueue.submission_count,
+              created_at: dbQueue.created_at
+            })
+            .eq('id', dbQueue.id);
+          
+          if (updateError) {
+            console.error(`Failed to update queue ${dbQueue.id}:`, updateError);
+            failedQueues.push(dbQueue.id);
+          } else {
+            console.log(`Updated queue ${dbQueue.id}`);
+          }
+        } else {
+          // Queue doesn't exist, insert it
+          console.log(`Queue ${dbQueue.id} doesn't exist, inserting...`);
+          const { error: insertError } = await supabase
+            .from('queues')
+            .insert(dbQueue);
+          
+          if (insertError) {
+            console.error(`Failed to insert queue ${dbQueue.id}:`, insertError);
+            failedQueues.push(dbQueue.id);
+          } else {
+            console.log(`Inserted queue ${dbQueue.id}`);
+          }
+        }
+      }
+
+      if (failedQueues.length > 0) {
+        console.error('Failed to process queues:', failedQueues);
+        throw new Error(`Failed to create/update queues: ${failedQueues.join(', ')}`);
+      }
+    } else {
+      console.log(`Successfully created ${upsertData?.length || 0} queue(s)`);
     }
+
+    // Wait for database consistency
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Final verification - check all queues exist
+    const { data: verifyData, error: verifyError } = await supabase
+      .from('queues')
+      .select('id')
+      .in('id', queues.map(q => q.id));
+
+    if (verifyError) {
+      console.error('Error verifying queues:', verifyError);
+      throw verifyError;
+    }
+
+    const foundIds = new Set(verifyData?.map(q => q.id) || []);
+    const missingIds = queues.filter(q => !foundIds.has(q.id)).map(q => q.id);
+
+    if (missingIds.length > 0) {
+      console.error('Queue verification failed - missing queues:', missingIds);
+      console.error('Expected:', queues.map(q => q.id));
+      console.error('Found:', Array.from(foundIds));
+      
+      // One more attempt to create missing queues
+      for (const queueId of missingIds) {
+        const queue = queues.find(q => q.id === queueId);
+        if (queue) {
+          const dbQueue = {
+            id: queue.id,
+            name: queue.name,
+            description: queue.description,
+            created_at: new Date(queue.createdAt).toISOString(),
+            submission_count: queue.submissionCount
+          };
+          
+          const { error: retryError } = await supabase
+            .from('queues')
+            .insert(dbQueue);
+          
+          if (retryError && retryError.code !== '23505') {
+            console.error(`Final attempt failed for queue ${queueId}:`, retryError);
+          }
+        }
+      }
+      
+      // Check one more time
+      const { data: finalCheck } = await supabase
+        .from('queues')
+        .select('id')
+        .in('id', missingIds);
+      
+      const stillMissing = missingIds.filter(id => !finalCheck?.some(q => q.id === id));
+      
+      if (stillMissing.length > 0) {
+        throw new Error(`Failed to create queues after multiple attempts: ${stillMissing.join(', ')}`);
+      }
+    }
+
+    console.log('All queues verified successfully');
   }
 
   // ========== Submissions ==========
@@ -127,14 +287,72 @@ export class SupabaseService {
       answers: submission.answers
     }));
 
-    // Use upsert to handle both new and existing submissions
-    const { error } = await supabase
-      .from('submissions')
-      .upsert(dbSubmissions, { onConflict: 'id' });
+    console.log(`Uploading ${dbSubmissions.length} submissions...`);
 
-    if (error) {
-      console.error('Error uploading submissions:', error);
-      throw error;
+    // Process submissions in batches to avoid overwhelming the database
+    const batchSize = 50;
+    let failedSubmissions: any[] = [];
+    
+    for (let i = 0; i < dbSubmissions.length; i += batchSize) {
+      const batch = dbSubmissions.slice(i, Math.min(i + batchSize, dbSubmissions.length));
+      
+      // First, try to insert the entire batch
+      const { error } = await supabase
+        .from('submissions')
+        .upsert(batch, { onConflict: 'id' });
+
+      if (error) {
+        console.error(`Error uploading submissions batch ${i / batchSize + 1}:`, error);
+        
+        // If it's a foreign key constraint error
+        if (error.code === '23503') {
+          const missingQueues = [...new Set(batch.map(s => s.queue_id))];
+          console.error('Batch contains submissions for queue IDs:', missingQueues);
+          
+          // Check which queues actually exist
+          const { data: existingQueues } = await supabase
+            .from('queues')
+            .select('id')
+            .in('id', missingQueues);
+          
+          const existingQueueIds = new Set(existingQueues?.map(q => q.id) || []);
+          const actuallyMissing = missingQueues.filter(id => !existingQueueIds.has(id));
+          
+          if (actuallyMissing.length > 0) {
+            console.error('Queues that actually do not exist:', actuallyMissing);
+            console.error('Queues that do exist:', Array.from(existingQueueIds));
+            
+            // Try to insert submissions one by one to identify problematic ones
+            for (const submission of batch) {
+              if (actuallyMissing.includes(submission.queue_id)) {
+                failedSubmissions.push(submission);
+                console.error(`Skipping submission ${submission.id} - queue ${submission.queue_id} does not exist`);
+              } else {
+                // Try to insert this submission individually
+                const { error: singleError } = await supabase
+                  .from('submissions')
+                  .upsert(submission, { onConflict: 'id' });
+                
+                if (singleError) {
+                  console.error(`Failed to insert submission ${submission.id} individually:`, singleError);
+                  failedSubmissions.push(submission);
+                }
+              }
+            }
+          } else {
+            throw new Error(`Foreign key constraint violation but all queues exist. This might be a timing issue. ${error.message}`);
+          }
+        } else {
+          throw error;
+        }
+      } else {
+        console.log(`Successfully uploaded batch ${i / batchSize + 1} (${batch.length} submissions)`);
+      }
+    }
+    
+    if (failedSubmissions.length > 0) {
+      console.error(`Failed to upload ${failedSubmissions.length} submissions`);
+      throw new Error(`Failed to upload ${failedSubmissions.length} submissions due to missing queues`);
     }
   }
 

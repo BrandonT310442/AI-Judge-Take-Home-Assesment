@@ -19,13 +19,67 @@ export class APIService {
       // Parse and validate the JSON file
       const { queues, submissions } = await JSONParser.parseSubmissionsFile(file);
       
-      // Store queues first
-      await supabaseService.upsertQueues(queues);
+      console.log(`Processing ${queues.length} queues and ${submissions.length} submissions...`);
       
-      // Store submissions
-      await supabaseService.uploadSubmissions(submissions);
+      // Store queues first with retry logic
+      let queueCreationAttempts = 0;
+      const maxAttempts = 3;
       
-      console.log(`Successfully ingested ${submissions.length} submissions across ${queues.length} queues`);
+      while (queueCreationAttempts < maxAttempts) {
+        try {
+          await supabaseService.upsertQueues(queues);
+          console.log(`Successfully created/updated ${queues.length} queues on attempt ${queueCreationAttempts + 1}`);
+          break;
+        } catch (queueError) {
+          queueCreationAttempts++;
+          console.error(`Failed to create queues (attempt ${queueCreationAttempts}):`, queueError);
+          
+          if (queueCreationAttempts >= maxAttempts) {
+            throw new Error(`Failed to create queues after ${maxAttempts} attempts: ${queueError instanceof Error ? queueError.message : 'Unknown error'}`);
+          }
+          
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 500 * queueCreationAttempts));
+        }
+      }
+      
+      // Add a small delay to ensure database consistency
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Verify queues exist before uploading submissions
+      const missingQueues: string[] = [];
+      
+      for (const queue of queues) {
+        const existingQueue = await supabaseService.getQueue(queue.id);
+        if (!existingQueue) {
+          missingQueues.push(queue.id);
+        }
+      }
+      
+      if (missingQueues.length > 0) {
+        console.error('Missing queues after creation:', missingQueues);
+        throw new Error(`Failed to create queues: ${missingQueues.join(', ')}`);
+      }
+      
+      // Store submissions with better error handling
+      try {
+        await supabaseService.uploadSubmissions(submissions);
+        console.log(`Successfully uploaded ${submissions.length} submissions`);
+      } catch (submissionError) {
+        console.error('Failed to upload submissions:', submissionError);
+        
+        // If it's a foreign key error, provide more context
+        if (submissionError instanceof Error && submissionError.message.includes('foreign key constraint')) {
+          // Try to diagnose which queues are missing
+          const allQueues = await supabaseService.getQueues();
+          console.error('Available queues in database:', allQueues.map(q => q.id));
+          console.error('Required queues for submissions:', [...new Set(submissions.map(s => s.queueId))]);
+        }
+        
+        throw new Error(`Failed to upload submissions: ${submissionError instanceof Error ? submissionError.message : 'Unknown error'}`);
+      }
+      
+      console.log(`✅ Successfully ingested ${submissions.length} submissions across ${queues.length} queues`);
     } catch (error) {
       console.error('Error ingesting submissions:', error);
       throw error;
