@@ -36,23 +36,36 @@ export function VerdictDistribution({ data, onSegmentClick }: VerdictDistributio
     return null;
   };
 
-  const renderCustomizedLabel = ({ cx, cy }: any) => {
+  const renderCustomizedLabel = ({ cx, cy, viewBox }: any) => {
+    // Use viewBox dimensions if available, otherwise fallback to cx/cy
+    const centerX = viewBox?.cx || cx;
+    const centerY = viewBox?.cy || cy;
+    
     return (
-      <text 
-        x={cx} 
-        y={cy} 
-        fill="currentColor" 
-        textAnchor="middle" 
-        dominantBaseline="central"
-        className="font-bold"
-      >
-        <tspan x={cx} dy="-0.2em" className="text-2xl">
+      <g>
+        <text 
+          x={centerX} 
+          y={centerY - 10} 
+          fill="currentColor" 
+          textAnchor="middle" 
+          dominantBaseline="middle"
+          className="font-bold"
+          style={{ fontSize: '24px', pointerEvents: 'none' }}
+        >
           {passRate.toFixed(0)}%
-        </tspan>
-        <tspan x={cx} dy="1.5em" className="text-xs fill-muted-foreground">
+        </text>
+        <text 
+          x={centerX} 
+          y={centerY + 10} 
+          fill="currentColor" 
+          textAnchor="middle" 
+          dominantBaseline="middle"
+          className="fill-muted-foreground"
+          style={{ fontSize: '12px', pointerEvents: 'none' }}
+        >
           Pass Rate
-        </tspan>
-      </text>
+        </text>
+      </g>
     );
   };
 
@@ -89,32 +102,41 @@ export function VerdictDistribution({ data, onSegmentClick }: VerdictDistributio
       <CardContent>
         {data.length > 0 && totalCount > 0 ? (
           <>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={renderCustomizedLabel}
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={2}
-                  dataKey="count"
-                  onClick={handleClick}
-                  style={{ cursor: onSegmentClick ? 'pointer' : 'default' }}
-                >
-                  {data.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={COLORS[entry.verdict]}
-                      className="hover:opacity-80 transition-opacity"
-                    />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="relative">
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={data}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey="count"
+                    onClick={handleClick}
+                    style={{ cursor: onSegmentClick ? 'pointer' : 'default' }}
+                    isAnimationActive={false}
+                  >
+                    {data.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={COLORS[entry.verdict]}
+                        className="hover:opacity-80 transition-opacity"
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Overlay the percentage text as absolute positioned element */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{passRate.toFixed(0)}%</div>
+                  <div className="text-xs text-muted-foreground">Pass Rate</div>
+                </div>
+              </div>
+            </div>
             <CustomLegend />
             <div className="mt-4 pt-4 border-t">
               <div className="flex justify-between items-center text-sm">
