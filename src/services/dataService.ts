@@ -1,5 +1,4 @@
 import { apiService } from './api';
-import { dataService as mockDataService } from './mockServices';
 import { isSupabaseConfigured } from './supabase/client';
 import type { 
   Submission, 
@@ -10,141 +9,97 @@ import type {
   EvaluationRun 
 } from '@/types';
 
-// Check if we should use real services or mock
-const USE_REAL_BACKEND = isSupabaseConfigured();
-
 class DataService {
-  private service = USE_REAL_BACKEND ? apiService : mockDataService;
+  private service = apiService;
 
   constructor() {
-    console.log(`Using ${USE_REAL_BACKEND ? 'real backend' : 'mock'} services`);
+    if (!isSupabaseConfigured()) {
+      console.warn('Supabase is not configured. Please set up your environment variables.');
+    }
+    console.log('Using real backend services');
   }
 
   // Submissions
   async uploadSubmissions(file: File): Promise<void> {
-    if (USE_REAL_BACKEND) {
-      return apiService.ingestSubmissions(file);
-    } else {
-      // For mock, parse the file and store in memory
-      const text = await file.text();
-      const data = JSON.parse(text);
-      return mockDataService.uploadSubmissions(Array.isArray(data) ? data : [data]);
-    }
+    return apiService.ingestSubmissions(file);
   }
 
   async getSubmissions(): Promise<Submission[]> {
-    return USE_REAL_BACKEND 
-      ? apiService.getSubmissions()
-      : mockDataService.getSubmissions();
+    return apiService.getSubmissions();
   }
 
   async getSubmissionsByQueue(queueId: string): Promise<Submission[]> {
-    return USE_REAL_BACKEND
-      ? apiService.getSubmissionsByQueue(queueId)
-      : mockDataService.getSubmissionsByQueue(queueId);
+    return apiService.getSubmissionsByQueue(queueId);
   }
 
   // Judges
   async getJudges(): Promise<Judge[]> {
-    return USE_REAL_BACKEND
-      ? apiService.getJudges()
-      : mockDataService.getJudges();
+    return apiService.getJudges();
   }
 
   async getActiveJudges(): Promise<Judge[]> {
-    return USE_REAL_BACKEND
-      ? apiService.getActiveJudges()
-      : mockDataService.getActiveJudges();
+    return apiService.getActiveJudges();
   }
 
   async createJudge(judge: Omit<Judge, 'id' | 'createdAt' | 'updatedAt'>): Promise<Judge> {
-    return USE_REAL_BACKEND
-      ? apiService.createJudge(judge)
-      : mockDataService.createJudge(judge);
+    return apiService.createJudge(judge);
   }
 
   async updateJudge(id: string, updates: Partial<Judge>): Promise<Judge> {
-    return USE_REAL_BACKEND
-      ? apiService.updateJudge(id, updates)
-      : mockDataService.updateJudge(id, updates);
+    return apiService.updateJudge(id, updates);
   }
 
   async deleteJudge(id: string): Promise<void> {
-    return USE_REAL_BACKEND
-      ? apiService.deleteJudge(id)
-      : mockDataService.deleteJudge(id);
+    return apiService.deleteJudge(id);
   }
 
   // Judge Assignments
   async getJudgeAssignments(queueId?: string): Promise<JudgeAssignment[]> {
-    return USE_REAL_BACKEND
-      ? apiService.getJudgeAssignments(queueId)
-      : mockDataService.getJudgeAssignments(queueId);
+    return apiService.getJudgeAssignments(queueId);
   }
 
   async assignJudges(queueId: string, questionId: string, judgeIds: string[]): Promise<void> {
-    return USE_REAL_BACKEND
-      ? apiService.assignJudges(queueId, questionId, judgeIds)
-      : mockDataService.assignJudges(queueId, questionId, judgeIds);
+    return apiService.assignJudges(queueId, questionId, judgeIds);
   }
 
   // Evaluations
   async getEvaluations(): Promise<Evaluation[]> {
-    return USE_REAL_BACKEND
-      ? apiService.getEvaluations()
-      : mockDataService.getEvaluations();
+    return apiService.getEvaluations();
   }
 
   async getEvaluationsByQueue(queueId: string): Promise<Evaluation[]> {
-    return USE_REAL_BACKEND
-      ? apiService.getEvaluationsByQueue(queueId)
-      : mockDataService.getEvaluationsByQueue(queueId);
+    return apiService.getEvaluationsByQueue(queueId);
   }
 
   async runEvaluations(queueId: string): Promise<EvaluationRun> {
-    return USE_REAL_BACKEND
-      ? apiService.runEvaluations(queueId)
-      : mockDataService.runEvaluations(queueId);
+    return apiService.runEvaluations(queueId);
   }
 
   // Queues
   async getQueues(): Promise<Queue[]> {
-    return USE_REAL_BACKEND
-      ? apiService.getQueues()
-      : mockDataService.getQueues();
+    return apiService.getQueues();
   }
 
   async getQueue(id: string): Promise<Queue | undefined> {
-    if (USE_REAL_BACKEND) {
-      const queue = await apiService.getQueue(id);
-      return queue || undefined;
-    }
-    return mockDataService.getQueue(id);
+    const queue = await apiService.getQueue(id);
+    return queue || undefined;
   }
 
   async deleteQueue(id: string): Promise<void> {
-    return USE_REAL_BACKEND
-      ? apiService.deleteQueue(id)
-      : mockDataService.deleteQueue?.(id) || Promise.resolve();
+    return apiService.deleteQueue(id);
   }
 
   async deleteSubmission(id: string): Promise<void> {
-    return USE_REAL_BACKEND
-      ? apiService.deleteSubmission(id)
-      : mockDataService.deleteSubmission?.(id) || Promise.resolve();
+    return apiService.deleteSubmission(id);
   }
 
   async deleteEvaluation(id: string): Promise<void> {
-    return USE_REAL_BACKEND
-      ? apiService.deleteEvaluation(id)
-      : mockDataService.deleteEvaluation?.(id) || Promise.resolve();
+    return apiService.deleteEvaluation(id);
   }
 
   // Evaluation Runs
   async getEvaluationRuns(queueId?: string): Promise<EvaluationRun[]> {
-    return USE_REAL_BACKEND
-      ? apiService.getEvaluationRuns(queueId)
-      : mockDataService.getEvaluationRuns(queueId);
+    return apiService.getEvaluationRuns(queueId);
   }
 }
 
